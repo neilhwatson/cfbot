@@ -253,7 +253,7 @@ sub exist_doc {
     my $find="";
     for ($x=0;$x < @doc;$x++) {
         ($key,$def) = split /=/,$doc[$x],2;
-        if ($key eq $keyword) {
+        if ($key =~ m/\A$keyword\Z/i) {
             $find = "*";
             last;   
         }
