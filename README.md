@@ -5,7 +5,7 @@ An IRC bot for CFEngine channels that allows users to query if for answers.
 
 Irssi. The contents of this repo are an Irssi home directory.
 
-## To us
+## To use
 
 Query the bot for EFL with !cfbot EFL and the definition for EFL will appear in the channel.
 

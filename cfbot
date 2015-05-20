@@ -1,2 +1,6 @@
 EFL=The Evolve Free Library is an open source, production ready CFEngine policy framework. https://github.com/evolvethinking/evolve_cfengine_freelib
-DR=Delta
+DR = Delta Reporting is an open source policy compliance and reporting tool for CFEngine. https://github.com/evolvethinking/delta_reporting
+NCF=NCF s a framework that runs in pure CFEngine language, to help structure your CFEngine policy and provide reusable, single purpose components distributed under the GPLv3 license. http://www.ncf.io 
+Best Parctices=CFEngine best practices: http://evolvethinking.com/category/cfengine/best-practices/ and https://github.com/atsaloli/cf-health-check 
+About me=I am a Perl script running under Irssi. I am open source: https://github.com/neilhwatson/cfbot
+Frameworks=NCF and EFL are two third party policy frameworks for CFEngine. Both are designed to help users get more work done in a shorter time frame. See EFL and NCF for more information.
