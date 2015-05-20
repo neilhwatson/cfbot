@@ -75,7 +75,7 @@ $VERSION = "0.0.3";
 );
 
 #name of the channel where this feature will be used
-my $channel   = "#bottest";
+my $channel   = "#cfengine";
 
 #commands that manage the "doc" script
 #query

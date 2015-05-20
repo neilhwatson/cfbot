@@ -19,8 +19,8 @@ chatnets = {
 
 channels = (
   { name = "cfengine"; chatnet = "Freenode"; autojoin = "Yes"; },
-  { name = "cfengine-dev"; chatnet = "Freenode"; autojoin = "Yes"; },
-  { name = "cfengine-cab"; chatnet = "Freenode"; autojoin = "Yes"; },
+#  { name = "cfengine-dev"; chatnet = "Freenode"; autojoin = "Yes"; },
+#  { name = "cfengine-cab"; chatnet = "Freenode"; autojoin = "Yes"; },
 
 );
 
