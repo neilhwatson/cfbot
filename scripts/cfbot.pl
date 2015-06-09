@@ -206,7 +206,7 @@ sub doc_find {
 sub list_topics {
    my @topics;
    for my $line ( @doc ) {
-      ( my $topic ) = m/\A([^=]+)=/;
+      ( my $topic ) = $line =~ m/\A([^=]+)=/;
       push @topics, $topic;
    }
    return \@topics;
