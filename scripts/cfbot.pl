@@ -130,6 +130,14 @@ sub doc_find {
                 my $newmsg = join("=",$keyword,$definition);
                 $server->command("notice $target $newmsg");
             }
+
+            # List available topics
+            elsif ( $keyword eq 'topics' ) {
+                my $topics = list_topics();
+                my $newmsg = 'Available topics: '.join( ', ', @$topics );
+                $server->command("notice $target $newmsg");
+            }
+
             #definition not found ; so we tell it to $nick
             else { 
                 $info="$nick $keyword does not exist";
@@ -193,6 +201,15 @@ sub doc_find {
 
         }
     }
+}
+
+sub list_topics {
+   my @topics;
+   for my $line ( @doc ) {
+      ( my $topic ) = m/\A([^=]+)=/;
+      push @topics, $topic;
+   }
+   return \@topics;
 }
 
 
