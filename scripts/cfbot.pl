@@ -233,14 +233,14 @@ sub get_bug_url
    );
 
    my $client = HTTP::Tiny->new();
-   my $response = $client->get( "$cf_bug_tracker/$bug_number" );
+   my $response = $client->head( "$cf_bug_tracker/$bug_number" );
 
    for my $key (keys %responses)
    {
       return $responses{$key} if $response->{status} == $key;
    }
 
-   return "$url returned an unexpected error";
+   return "$url returned an unexpected error [$response->{status}]";
 }
 
 #load datas
