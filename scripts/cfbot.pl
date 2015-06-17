@@ -62,6 +62,7 @@ use Irssi::Irc;
 use Irssi;
 use strict;
 use warnings;
+use HTTP::Tiny;
 use vars qw($VERSION %IRSSI);
 
 $VERSION = "0.0.3"; 
@@ -76,6 +77,7 @@ $VERSION = "0.0.3";
 
 #name of the channel where this feature will be used
 my $channel   = "#cfengine";
+my $cf_bug_tracker = 'https://dev.cfengine.com/issues';
 
 #commands that manage the "doc" script
 #query
@@ -138,6 +140,13 @@ sub doc_find {
                 $server->command("notice $target $newmsg");
             }
 
+            # Return bug URL if available
+            elsif ( $keyword =~ m/\Abug (\d+)/ ) {
+               my $bug_number = $1;
+               my $bug_url    = get_bug_url( $bug_number );
+               $server->command("notice $target $bug_url");
+            }
+           
             #definition not found ; so we tell it to $nick
             else { 
                 $info="$nick $keyword does not exist";
@@ -212,6 +221,27 @@ sub list_topics {
    return \@topics;
 }
 
+sub get_bug_url
+{
+   my $bug_number = shift;
+   my $url = "$cf_bug_tracker/$bug_number";
+   return "Not a valid bug number" unless $bug_number =~ m/\A\d{1,6}\Z/;
+   
+   my %responses = (
+      200 => $url,
+      404 => "Bug $bug_number not found"
+   );
+
+   my $client = HTTP::Tiny->new();
+   my $response = $client->get( "$cf_bug_tracker/$bug_number" );
+
+   for my $key (keys %responses)
+   {
+      return $responses{$key} if $response->{status} == $key;
+   }
+
+   return "$url returned an unexpected error";
+}
 
 #load datas
 sub load_doc {

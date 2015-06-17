@@ -8,4 +8,5 @@ Frameworks=NCF and EFL are two third party policy frameworks for CFEngine. Both 
 Help=Usage: !cfbot <keyword> will return information about the keyword. I am case insensitive. Try !cfbot topics to see a list of available topics.
 NCF=NCF s a framework that runs in pure CFEngine language, to help structure your CFEngine policy and provide reusable, single purpose components distributed under the GPLv3 license. http://www.ncf.io 
 Rudder=Rudder is an easy to use, web-driven, role-based solution for IT Infrastructure Automation and Compliance. It runs on CFEengine. http://www.rudder-project.org/site/
+Connection debugging=Client side connection errors can be seen by running cf-agent -v, in verbose mode, but most errors will be better explained by the server. Run cf-serverd in verbose mode with cf-serverd -vF > server.txt.
 Support=Third party CFEngine consultants: http://www.verticalsysadmin.com/cfengine/ps.htm
