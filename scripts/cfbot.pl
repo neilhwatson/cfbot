@@ -196,7 +196,10 @@ sub find_matches
 
    return @processed_matches if scalar @processed_matches < $max;
 
-   return @processed_matches[0..$max];
+   my $count = scalar @processed_matches;
+   splice @processed_matches, $max;
+   push @processed_matches, { url => "...", summary => "$count matches found, but only showing $max matches" };
+   return @processed_matches;
 }
 
 sub get_bug
