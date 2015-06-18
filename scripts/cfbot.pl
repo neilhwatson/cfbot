@@ -79,6 +79,7 @@ $VERSION = "0.0.3";
 #name of the channel where this feature will be used
 my $channel   = "#cfengine";
 my $cf_bug_tracker = 'https://dev.cfengine.com/issues';
+my $cf_doc_functions = 'https://docs.cfengine.com/latest/reference-functions';
 
 #commands that manage the "doc" script
 #query
@@ -147,7 +148,15 @@ sub doc_find {
                my $bug = get_bug( $bug_number );
                $server->command("notice $target $bug->{response} $bug->{subject}");
             }
+
+           # Return function reference URL if available
+            elsif ( $keyword =~ m/\Afunction (\d+)/ ) {
+               my $fucntion = $1;
+               my $function = get_bug( $fucntion);
+               $server->command("notice $target Function: $function->{function} $function->{response}");
+            }
            
+
             #definition not found ; so we tell it to $nick
             else { 
                 $info="$nick $keyword does not exist";
@@ -220,6 +229,61 @@ sub list_topics {
       push @topics, $topic;
    }
    return \@topics;
+}
+
+sub get_function
+{
+   my $function = shift;
+   $function = lc( $function );
+   my %return = (
+      function => $function,
+      response => "Unexpected error"
+   );
+   my $url = "$cf_doc_functions-$function";
+
+   unless ( $function =~ m/\A\w+\Z/ )
+   {
+      $return{response} = "Not a valid function name";
+   }
+   else
+   {
+      my %responses = (
+         200 => $url,
+         404 => "Function $function not found"
+      );
+
+      my $client = HTTP::Tiny->new();
+      my $response = $client->get( $url );
+      for my $key (keys %responses)
+      {
+         $return{response} = $responses{$key} if $response->{status} == $key;
+      }
+
+      if ( $response->{status} == 200 )
+      {
+         my $p = HTML::TokeParser::Simple->new( \$response->{content} );
+
+         while (my $token = $p->get_tag('div'))
+         {
+            if ( defined $token->[1]{class}
+                  and $token->[1]{class} eq 'article_title' )
+            {
+               if ( $return{function} eq $p->get_trimmed_text("/h1") )
+               {
+                  $return{response} = $url;
+                  last;
+               }
+               else
+               {
+                  $return{response} = "Not found in reference";
+                  last;
+               }
+            }
+         }
+      }
+   }
+
+   return \%return;
 }
 
 sub get_bug
