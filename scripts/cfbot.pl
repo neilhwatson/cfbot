@@ -19,9 +19,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 =head1 SYNOPSIS
-This script manage a list of keywords 
+This script manage a list of keywords
 with their definition...
-The file, named "doc", is composed as follow : 
+The file, named "doc", is composed as follow :
 keyword=definition
 
 Also, returns CFEngine bugs, and documentation. See the help line in the file
@@ -50,6 +50,8 @@ my $cmd_query = "!cfbot";
 #file name to store data
 my $doc_file = Irssi::get_irssi_dir()."/cfbot";
 
+my $documentation_checkout = '/home/neil/documentation'; # check out documentation.git here
+
 #==========================END OF PARMS======================================
 
 #init array
@@ -72,7 +74,7 @@ sub doc_find {
     #the string behind *action*
     my $line="";
 
-    #to display /msg 
+    #to display /msg
     my $info="";
 
     #split the *action* and the rest of the line
@@ -83,9 +85,9 @@ sub doc_find {
         #to query
         if ($cmd eq $cmd_query) {
             $keyword = $line;
-            
+
            ($find,$definition) = exist_doc($keyword);
-            
+
             if ($find ne '') {
                 my $newmsg = join("=",$keyword,$definition);
                 $server->command("notice $target $newmsg");
@@ -112,8 +114,15 @@ sub doc_find {
                $server->command("notice $target Function: $function->{function} $function->{response}");
             }
 
+           # search docs if available
+            elsif ( $keyword =~ m/\Asearch ([-\w ]+)/ ) {
+               my $word = $1;
+               $server->command("notice $target Match: $_->{url} $_->{summary}")
+                foreach find_matches($word, 20);
+            }
+
             #definition not found ; so we tell it to $nick
-            else { 
+            else {
                 $info="$nick $keyword does not exist";
                 info_doc($server,$info);
             }
@@ -178,6 +187,67 @@ sub get_function
    return \%return;
 }
 
+sub find_matches
+{
+   my $word = shift;
+   my $max = shift;
+   unless (chdir $documentation_checkout)
+   {
+       warn "Couldn't change into '$documentation_checkout': $!";
+       return;
+   }
+
+   my $matches = `git grep '$word' | grep 'reference/functions/'`;
+
+   my @matches = map { { data => $_ } } split "\n", $matches;
+
+   my %seen;
+
+   my @processed_matches;
+   foreach my $match (@matches)
+   {
+    my ($location, $data) = split ':', $match->{data}, 2;
+    next if exists $seen{$location};
+
+    my $published = 0;
+    $match->{location} = $location;
+    $match->{url} = $location;
+
+    $match->{url} = "[URL unknown]";
+    open my $refd, '<', $location or warn "Couldn't open $location: $!";
+    while (<$refd>)
+    {
+     chomp;
+     if (m/^title:\s+(.+)/)
+     {
+      my $title = $1;
+      $title =~ s/[]|"[]//g;
+      $match->{url} = "https://docs.cfengine.com/docs/master/reference-functions-$title.html";
+     }
+     elsif (m/^.+Description:\W+\s+(.+)/)
+     {
+      $match->{summary} = $1;
+     }
+     elsif ($match->{summary} && m/^.+History:\W+\s+(.+)/)
+     {
+      $match->{summary} .= " ($1)";
+     }
+     elsif (m/^published: true/)
+     {
+      $published = 1;
+     }
+    }
+
+    next unless $published;
+    $seen{$location}++;
+    push @processed_matches, $match;
+   }
+
+   return @processed_matches if scalar @processed_matches < $max;
+
+   return @processed_matches[0..$max];
+}
+
 sub get_bug
 {
    my $bug_number = shift;
@@ -221,20 +291,20 @@ sub load_doc {
     my $doc_line="";
     if (-e $doc_file) {
         @doc = ();
-		Irssi::print("Loading doc from $doc_file");
-        local *DOC; 
+        Irssi::print("Loading doc from $doc_file");
+        local *DOC;
         open(DOC,"$doc_file");
         local $/ = "\n";
-        while (<DOC>) { 
-            chop(); 
+        while (<DOC>) {
+            chop();
             $doc_line = $_;
-            push(@doc,$doc_line); 
+            push(@doc,$doc_line);
         }
         close DOC;
-		Irssi::print("Loaded " . scalar(@doc) . " record(s)");
-	} else {
-		Irssi::print("Cannot load $doc_file");
-	}
+        Irssi::print("Loaded " . scalar(@doc) . " record(s)");
+    } else {
+        Irssi::print("Cannot load $doc_file");
+    }
 }
 
 #search if keyword already exists or not
@@ -247,7 +317,7 @@ sub exist_doc {
         ($key,$def) = split /=/,$doc[$x],2;
         if ($key =~ m/\A$keyword\Z/i) {
             $find = "*";
-            last;   
+            last;
         }
     }
     return $find,$def;
@@ -264,4 +334,3 @@ load_doc();
 
 Irssi::signal_add_last('message public', 'doc_find');
 Irssi::print("Doc Management loaded!");
-
