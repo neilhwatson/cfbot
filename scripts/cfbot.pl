@@ -50,6 +50,8 @@ my $cmd_query = "!cfbot";
 #file name to store data
 my $doc_file = Irssi::get_irssi_dir()."/cfbot";
 
+my $documentation_checkout = '/home/neil/documentation'; # check out documentation.git here
+
 #==========================END OF PARMS======================================
 
 #init array
@@ -110,6 +112,13 @@ sub doc_find {
                my $function = $1;
                $function = get_function( $function);
                $server->command("notice $target Function: $function->{function} $function->{response}");
+            }
+
+           # search docs if available
+            elsif ( $keyword =~ m/\Asearch ([-\w ]+)/ ) {
+               my $word = $1;
+               $server->command("notice $target Match: $_->{url} $_->{summary}")
+                foreach find_matches($word, 20);
             }
 
             #definition not found ; so we tell it to $nick
@@ -176,6 +185,67 @@ sub get_function
       }
    }
    return \%return;
+}
+
+sub find_matches
+{
+   my $word = shift;
+   my $max = shift;
+   unless (chdir $documentation_checkout)
+   {
+       warn "Couldn't change into '$documentation_checkout': $!";
+       return;
+   }
+
+   my $matches = `git grep '$word' | grep 'reference/functions/'`;
+
+   my @matches = map { { data => $_ } } split "\n", $matches;
+
+   my %seen;
+
+   my @processed_matches;
+   foreach my $match (@matches)
+   {
+    my ($location, $data) = split ':', $match->{data}, 2;
+    next if exists $seen{$location};
+
+    my $published = 0;
+    $match->{location} = $location;
+    $match->{url} = $location;
+
+    $match->{url} = "[URL unknown]";
+    open my $refd, '<', $location or warn "Couldn't open $location: $!";
+    while (<$refd>)
+    {
+     chomp;
+     if (m/^title:\s+(.+)/)
+     {
+      my $title = $1;
+      $title =~ s/[]|"[]//g;
+      $match->{url} = "https://docs.cfengine.com/docs/master/reference-functions-$title.html";
+     }
+     elsif (m/^.+Description:\W+\s+(.+)/)
+     {
+      $match->{summary} = $1;
+     }
+     elsif ($match->{summary} && m/^.+History:\W+\s+(.+)/)
+     {
+      $match->{summary} .= " ($1)";
+     }
+     elsif (m/^published: true/)
+     {
+      $published = 1;
+     }
+    }
+
+    next unless $published;
+    $seen{$location}++;
+    push @processed_matches, $match;
+   }
+
+   return @processed_matches if scalar @processed_matches < $max;
+
+   return @processed_matches[0..$max];
 }
 
 sub get_bug
