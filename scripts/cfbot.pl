@@ -62,7 +62,7 @@ use Irssi::Irc;
 use Irssi;
 use strict;
 use warnings;
-use HTML::TokeParser::Simple; #libhtml-tokeparser-simple-perl
+use Web::Query;
 use HTTP::Tiny;
 use vars qw($VERSION %IRSSI);
 
@@ -78,8 +78,6 @@ $VERSION = "0.0.3";
 
 #name of the channel where this feature will be used
 my $channel   = "#cfengine";
-my $cf_bug_tracker = 'https://dev.cfengine.com/issues';
-my $cf_doc_functions = 'https://docs.cfengine.com/latest/reference-functions';
 
 #commands that manage the "doc" script
 #query
@@ -233,6 +231,7 @@ sub list_topics {
 sub get_function
 {
    my $function = shift;
+   my $cf_doc_functions = 'https://docs.cfengine.com/latest/reference-functions';
    $function = lc( $function );
    my %return = (
       function => $function,
@@ -260,34 +259,27 @@ sub get_function
 
       if ( $response->{status} == 200 )
       {
-         my $p = HTML::TokeParser::Simple->new( \$response->{content} );
+         my $q = Web::Query->new_from_html( \$response->{content} );
+         my $subject = lc( $q->find( 'div.article_title' )->text );
+         $subject =~ s/\A\s+|\s+\Z//g; # trim leading and trailing whitespace
 
-         while (my $token = $p->get_tag('div'))
+         if ( $subject eq $return{function} )
          {
-            if ( defined $token->[1]{class}
-                  and $token->[1]{class} eq 'article_title' )
-            {
-               if ( $return{function} eq $p->get_trimmed_text("/h1") )
-               {
-                  $return{response} = $url;
-                  last;
-               }
-               else
-               {
-                  $return{response} = "Not found in reference";
-                  last;
-               }
-            }
+            $return{response} = $url;
+         }
+         else
+         {
+            $return{response} = "Not found in reference";
          }
       }
    }
-
    return \%return;
 }
 
 sub get_bug
 {
    my $bug_number = shift;
+   my $cf_bug_tracker = 'https://dev.cfengine.com/issues';
    my %return = (
       subject  => "",
       response => "Unexpected error"
@@ -314,20 +306,11 @@ sub get_bug
 
       if ( $response->{status} == 200 )
       {
-         my $p = HTML::TokeParser::Simple->new( \$response->{content} );
-
-         while (my $token = $p->get_tag('div'))
-         {
-            if ( defined $token->[1]{class}
-                  and $token->[1]{class} eq 'subject' )
-            {
-               $return{subject} = $p->get_trimmed_text("/h3");
-               last;
-            }
-         }
+         my $q = Web::Query->new_from_html( \$response->{content} );
+         $return{subject} = $q->find( 'div.subject' )->text;
+         $return{subject} =~ s/\A\s+|\s+\Z//g; # trim leading and trailing whitespace
       }
    }
-
    return \%return;
 }
 
