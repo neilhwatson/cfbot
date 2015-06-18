@@ -152,10 +152,9 @@ sub doc_find {
            # Return function reference URL if available
             elsif ( $keyword =~ m/\Afunction (\w+)/ ) {
                my $function = $1;
-               my $function = get_bug( $function);
+               my $function = get_function( $function);
                $server->command("notice $target Function: $function->{function} $function->{response}");
             }
-           
 
             #definition not found ; so we tell it to $nick
             else { 
