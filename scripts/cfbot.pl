@@ -160,7 +160,7 @@ sub find_matches
 
     $match->{url} = "[URL unknown]";
     open my $refd, '<', $location or warn "Couldn't open $location: $!";
-    while (<$refd>)
+ readdesc: while (<$refd>)
     {
      chomp;
      if (m/^title:\s+(.+)/)
@@ -169,10 +169,6 @@ sub find_matches
       $title =~ s/[]|"[]//g;
       $match->{url} = "https://docs.cfengine.com/docs/master/reference-functions-$title.html";
      }
-     elsif (m/^.+Description:\W+\s+(.+)/)
-     {
-      $match->{summary} = $1;
-     }
      elsif ($match->{summary} && m/^.+History:\W+\s+(.+)/)
      {
       $match->{summary} .= " ($1)";
@@ -180,6 +176,16 @@ sub find_matches
      elsif (m/^published: true/)
      {
       $published = 1;
+     }
+     elsif (m/^.+Description:\W+\s+(.+)/)
+     {
+         $match->{summary} = $1;
+         while (<$refd>)
+         {
+             chomp;
+             next readdesc unless m/.+/;
+             $match->{summary} .= ' ' . $_;
+         }
      }
     }
 
