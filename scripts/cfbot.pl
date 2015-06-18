@@ -143,8 +143,8 @@ sub doc_find {
             # Return bug URL if available
             elsif ( $keyword =~ m/\Abug (\d+)/ ) {
                my $bug_number = $1;
-               my $bug_url    = get_bug_url( $bug_number );
-               $server->command("notice $target $bug_url");
+               my $bug = get_bug( $bug_number );
+               $server->command("notice $target $bug->{response} $bug->{subject}");
             }
            
             #definition not found ; so we tell it to $nick
@@ -221,26 +221,50 @@ sub list_topics {
    return \@topics;
 }
 
-sub get_bug_url
+sub get_bug
 {
    my $bug_number = shift;
-   my $url = "$cf_bug_tracker/$bug_number";
-   return "Not a valid bug number" unless $bug_number =~ m/\A\d{1,6}\Z/;
-   
-   my %responses = (
-      200 => $url,
-      404 => "Bug $bug_number not found"
+   my %return = (
+      subject  => "",
+      response => "Unexpected error"
    );
+   my $url = "$cf_bug_tracker/$bug_number";
 
-   my $client = HTTP::Tiny->new();
-   my $response = $client->head( "$cf_bug_tracker/$bug_number" );
-
-   for my $key (keys %responses)
+   unless ( $bug_number =~ m/\A\d{1,6}\Z/ )
    {
-      return $responses{$key} if $response->{status} == $key;
+      $return{response} = "Not a valid bug number";
+   }
+   else
+   {
+      my %responses = (
+         200 => $url,
+         404 => "Bug $bug_number not found"
+      );
+
+      my $client = HTTP::Tiny->new();
+      my $response = $client->get( "$cf_bug_tracker/$bug_number" );
+      for my $key (keys %responses)
+      {
+         $return{response} = $responses{$key} if $response->{status} == $key;
+      }
+
+      if ( $response->{status} == 200 )
+      {
+         my $p = HTML::TokeParser::Simple->new( \$response->{content} );
+
+         while (my $token = $p->get_tag('div'))
+         {
+            if ( defined $token->[1]{class}
+                  and $token->[1]{class} eq 'subject' )
+            {
+               $return{subject} = $p->get_trimmed_text("/h3");
+               last;
+            }
+         }
+      }
    }
 
-   return "$url returned an unexpected error [$response->{status}]";
+   return \%return;
 }
 
 #load datas
