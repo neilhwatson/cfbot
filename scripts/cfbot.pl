@@ -40,7 +40,6 @@ use strict;
 use warnings;
 use Web::Query;
 use HTTP::Tiny;
-use vars qw($VERSION %IRSSI);
 
 #name of the channel where this feature will be used
 my $channel   = "#cfengine";
@@ -264,5 +263,5 @@ sub info_doc {
 load_doc();
 
 Irssi::signal_add_last('message public', 'doc_find');
-Irssi::print("Doc Management $VERSION loaded!");
+Irssi::print("Doc Management loaded!");
 
