@@ -19,9 +19,9 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 =head1 SYNOPSIS
-This script manage a list of keywords 
+This script manage a list of keywords
 with their definition...
-The file, named "doc", is composed as follow : 
+The file, named "doc", is composed as follow :
 keyword=definition
 
 Also, returns CFEngine bugs, and documentation. See the help line in the file
@@ -74,7 +74,7 @@ sub doc_find {
     #the string behind *action*
     my $line="";
 
-    #to display /msg 
+    #to display /msg
     my $info="";
 
     #split the *action* and the rest of the line
@@ -85,9 +85,9 @@ sub doc_find {
         #to query
         if ($cmd eq $cmd_query) {
             $keyword = $line;
-            
+
            ($find,$definition) = exist_doc($keyword);
-            
+
             if ($find ne '') {
                 my $newmsg = join("=",$keyword,$definition);
                 $server->command("notice $target $newmsg");
@@ -122,7 +122,7 @@ sub doc_find {
             }
 
             #definition not found ; so we tell it to $nick
-            else { 
+            else {
                 $info="$nick $keyword does not exist";
                 info_doc($server,$info);
             }
@@ -291,20 +291,20 @@ sub load_doc {
     my $doc_line="";
     if (-e $doc_file) {
         @doc = ();
-		Irssi::print("Loading doc from $doc_file");
-        local *DOC; 
+        Irssi::print("Loading doc from $doc_file");
+        local *DOC;
         open(DOC,"$doc_file");
         local $/ = "\n";
-        while (<DOC>) { 
-            chop(); 
+        while (<DOC>) {
+            chop();
             $doc_line = $_;
-            push(@doc,$doc_line); 
+            push(@doc,$doc_line);
         }
         close DOC;
-		Irssi::print("Loaded " . scalar(@doc) . " record(s)");
-	} else {
-		Irssi::print("Cannot load $doc_file");
-	}
+        Irssi::print("Loaded " . scalar(@doc) . " record(s)");
+    } else {
+        Irssi::print("Cannot load $doc_file");
+    }
 }
 
 #search if keyword already exists or not
@@ -317,7 +317,7 @@ sub exist_doc {
         ($key,$def) = split /=/,$doc[$x],2;
         if ($key =~ m/\A$keyword\Z/i) {
             $find = "*";
-            last;   
+            last;
         }
     }
     return $find,$def;
@@ -334,4 +334,3 @@ load_doc();
 
 Irssi::signal_add_last('message public', 'doc_find');
 Irssi::print("Doc Management loaded!");
-
