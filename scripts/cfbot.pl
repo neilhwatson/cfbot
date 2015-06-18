@@ -50,7 +50,7 @@ my $cmd_query = "!cfbot";
 #file name to store data
 my $doc_file = Irssi::get_irssi_dir()."/cfbot";
 
-my $documentation_checkout = '/home/neil/documentation'; # check out documentation.git here
+my $documentation_checkout = '/home/cfbot/documentation'; # check out documentation.git here
 
 #==========================END OF PARMS======================================
 
@@ -107,15 +107,8 @@ sub doc_find {
                $server->command("notice $target $bug->{response} $bug->{subject}");
             }
 
-           # Return function reference URL if available
-            elsif ( $keyword =~ m/\Afunction (\w+)/ ) {
-               my $function = $1;
-               $function = get_function( $function);
-               $server->command("notice $target Function: $function->{function} $function->{response}");
-            }
-
            # search docs if available
-            elsif ( $keyword =~ m/\Asearch ([-\w ]+)/ ) {
+            elsif ( $keyword =~ m/\Asearch ([-\w ]+)/i ) {
                my $word = $1;
                $server->command("notice $target Match: $_->{url} $_->{summary}")
                 foreach find_matches($word, 20);
@@ -137,54 +130,6 @@ sub list_topics {
       push @topics, $topic;
    }
    return \@topics;
-}
-
-sub get_function
-{
-   my $function = shift;
-   my $cf_doc_functions = 'https://docs.cfengine.com/latest/reference-functions';
-   $function = lc( $function );
-   my %return = (
-      function => $function,
-      response => "Unexpected error"
-   );
-   my $url = "$cf_doc_functions-$function";
-
-   unless ( $function =~ m/\A\w+\Z/ )
-   {
-      $return{response} = "Not a valid function name";
-   }
-   else
-   {
-      my %responses = (
-         200 => $url,
-         404 => "Function $function not found"
-      );
-
-      my $client = HTTP::Tiny->new();
-      my $response = $client->get( $url );
-      for my $key (keys %responses)
-      {
-         $return{response} = $responses{$key} if $response->{status} == $key;
-      }
-
-      if ( $response->{status} == 200 )
-      {
-         my $q = Web::Query->new_from_html( \$response->{content} );
-         my $subject = lc( $q->find( 'div.article_title' )->text );
-         $subject =~ s/\A\s+|\s+\Z//g; # trim leading and trailing whitespace
-
-         if ( $subject eq $return{function} )
-         {
-            $return{response} = $url;
-         }
-         else
-         {
-            $return{response} = "Not found in reference";
-         }
-      }
-   }
-   return \%return;
 }
 
 sub find_matches
