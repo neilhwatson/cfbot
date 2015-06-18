@@ -62,6 +62,7 @@ use Irssi::Irc;
 use Irssi;
 use strict;
 use warnings;
+use HTML::TokeParser::Simple; #libhtml-tokeparser-simple-perl
 use HTTP::Tiny;
 use vars qw($VERSION %IRSSI);
 
