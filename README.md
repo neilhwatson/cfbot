@@ -3,7 +3,7 @@ An IRC bot for CFEngine channels that allows users to query if for answers.
 
 ## Requirements
 
-Irssi. The contents of this repo are an Irssi home directory.
+Multiple Perl modules all shown in cfbot.pl.
 
 ## To use
 

@@ -1,5 +1,0 @@
-load nickcolor.pl
-load trackbar.pl
-load trigger.pl
-load notify.pl
-load cfbot.pl
