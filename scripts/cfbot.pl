@@ -40,6 +40,9 @@ use strict;
 use warnings;
 use Web::Query;
 use HTTP::Tiny;
+use File::Basename;
+use Text::LineNumber;
+use Data::Dumper;
 
 #name of the channel where this feature will be used
 my $channel   = "#cfengine";
@@ -51,6 +54,7 @@ my $cmd_query = "!cfbot";
 my $doc_file = Irssi::get_irssi_dir()."/cfbot";
 
 my $documentation_checkout = '/home/cfbot/documentation'; # check out documentation.git here
+my $docbase = 'https://docs.cfengine.com/latest'; # or 'latest'
 
 #==========================END OF PARMS======================================
 
@@ -132,73 +136,212 @@ sub list_topics {
    return \@topics;
 }
 
+sub reference_type
+{
+ my $location = shift;
+
+ my @common = (location => $location);
+
+ return undef if $location !~ m,reference/(.+)\.markdown$,;
+
+ my $node = $1;
+
+ return undef if $node eq 'standard-library';
+ return undef if $node eq 'functions';
+ return undef if $node =~ m/(all-types|common-attributes|design-center|enterprise)/;
+
+ push @common, (node => $node, basenode => dirname($node));
+
+ return { @common, type => 'class' } if $node eq 'classes';
+ return { @common, type => 'macros' } if $node eq 'macros';
+
+ if ($node =~ s,standard-library/(.+),standard-library-$1,)
+ {
+  return { @common, node => $node, type => "stdlib:$1", url => "$docbase/reference-NODE.html" };
+ }
+
+ return { @common, type => 'special-variables' } if $node eq 'special-variables';
+ return { @common, type => "special-variable:$1" } if $node =~ m,special-variables/(.+),;
+
+ return { @common, type => 'promise-types' } if $node eq 'promise-types';
+ return { @common, type => "edit_line", url => "$docbase/reference-promise-types-edit_line.html" } if $node =~ m,edit_line,;
+ return { @common, type => "edit_xml", url => "$docbase/reference-promise-types-edit_xml.html" } if $node =~ m,edit_xml,;
+ return { @common, type => "promise-type:$1" } if $node =~ m,promise-types/(.+),;
+
+ return { @common, type => "function:$1" } if $node =~ m,functions/(.+),;
+
+ return { @common, type => 'components' } if $node eq 'components';
+ return { @common, type => "file_control", url => "$docbase/reference-components-file_control_promises.html" } if $node eq 'components/file_control_promises';
+  return { @common, type => "component:$1" } if $node =~ m,components/(.+),;
+
+ warn "Sorry, I can't parse location: $location";
+ return undef;
+}
+
+sub add_markdown_match
+{
+ my ($arr, $header, $level, $offset) = @_;
+
+ push @$arr, { header => $header, level => $level, offset => $offset };
+}
+
+sub parse_markdown
+{
+ my $word = shift;
+ my $text = shift @_;
+ my $tln = Text::LineNumber->new($text);
+
+ my %ret;
+
+ $ret{published} = ($text =~ m/^published:\s+true/m);
+
+ $ret{title} = $1 if $text =~ m/^title:\s+(.+)/m;
+ $ret{title} =~ s/[]|"[]//g;
+
+ my $temp = $text;
+
+ while ($temp =~ s{ $word }
+                  {
+                   # line number -> number of matches
+                   $ret{matches}->{scalar $tln->off2lnr($-[0])}++;
+                   '';
+                  }egmx)
+ {
+ }
+
+ $ret{headers} = [];
+
+ $temp = $text;
+ $temp =~ s{ ^(.+)[ \t]*\n=+[ \t]*\n+ }
+           {
+            add_markdown_match($ret{headers}, $1, 1, $-[0]);
+           }egmx;
+
+ $temp = $text;
+ $temp =~ s{ ^(.+)[ \t]*\n-+[ \t]*\n+ }
+           {
+            add_markdown_match($ret{headers}, $1, 2, $-[0]);
+           }egmx;
+
+ $temp = $text;
+ $temp =~ s{
+            ^(\#{1,6})  # $1 = string of #'s
+            [ \t]*
+            (.+?)       # $2 = Header text
+            [ \t]*
+            \#*         # optional closing #'s (not counted)
+            \n+
+        }{
+            my $h_level = length($1);
+            add_markdown_match($ret{headers}, $2, $h_level, $-[0]);
+            '';
+        }egmx;
+
+ # sort the headers by position
+ @{$ret{sections}} = sort { $a->{offset} <=> $b->{offset} } @{$ret{headers}};
+
+ my @sections = @{$ret{sections}};
+
+ while (@sections)
+ {
+  my $current = shift @sections;
+
+  my $end = length($text)-1;
+  if (scalar @sections)
+  {
+   my $next = $sections[0];
+   # end of this section is just before the next one begins
+   $end = $tln->lnr2off($tln->off2lnr($next->{offset})) - 1;
+  }
+
+  $current->{start_line} = scalar $tln->off2lnr($current->{offset});
+  $current->{end_line} = $tln->off2lnr($end);
+  $current->{end} = $end;
+
+  my $section_body_start = $current->{offset};
+  my $section_text = substr $text, $section_body_start, $end - $section_body_start;
+
+  if ($section_text =~ m/\n.+Description:\W+\s+(.+?)\n\n/s)
+  {
+   $current->{summary} = $1 if $section_text =~ m/\n.+Description:\W+\s+(.+?)\n\n/s;
+   $current->{summary} .= " ($1)" if $section_text =~ m/^.+History:\W+\s+(.+)/m;
+  }
+  else
+  {
+   $current->{summary} = $section_text;
+  }
+ }
+
+ delete $ret{headers};
+
+ return \%ret;
+}
+
 sub find_matches
 {
    my $word = shift;
-   my $max = shift;
+   my $max = shift || 100;
    unless (chdir $documentation_checkout)
    {
        warn "Couldn't change into '$documentation_checkout': $!";
        return;
    }
 
-   my $matches = `git grep '$word' | grep 'reference/functions/'`;
+   my $matches = `git grep -l '$word' reference`;
 
-   my @matches = map { { data => $_ } } split "\n", $matches;
-
-   my %seen;
+   my @matches = grep { defined } map { reference_type($_) } split("\n", $matches);
 
    my @processed_matches;
+
+   my %parsed;
+
    foreach my $match (@matches)
    {
-    my ($location, $data) = split ':', $match->{data}, 2;
-    next if exists $seen{$location};
-
-    my $published = 0;
-    $match->{location} = $location;
-    $match->{url} = $location;
-
-    $match->{url} = "[URL unknown]";
-    open my $refd, '<', $location or warn "Couldn't open $location: $!";
- readdesc: while (<$refd>)
+    unless (exists $match->{url})
     {
-     chomp;
-     if (m/^title:\s+(.+)/)
+     $match->{url} = ($match->{type} =~ m/:/) ? "$docbase/reference-BASENODE-TITLE.html" : "$docbase/reference-NODE.html";
+    }
+
+    warn "uh-oh: I can't construct the URL here " . Dumper $match unless $match->{url};
+
+    open my $refd, '<', $match->{location} or warn "Couldn't open $match->{location}: $!";
+
+    my $parse = exists $match->{parse} ? $match->{parse} : parse_markdown($word, join '', <$refd>);
+    $match->{parse} = $parse;
+
+    next unless $parse->{published};
+
+    foreach my $text_match_line (keys %{$parse->{matches}})
+    {
+     foreach my $section (@{$parse->{sections}})
      {
-      my $title = $1;
-      $title =~ s/[]|"[]//g;
-      $match->{url} = "https://docs.cfengine.com/docs/master/reference-functions-$title.html";
-     }
-     elsif ($match->{summary} && m/^.+History:\W+\s+(.+)/)
-     {
-      $match->{summary} .= " ($1)";
-     }
-     elsif (m/^published: true/)
-     {
-      $published = 1;
-     }
-     elsif (m/^.+Description:\W+\s+(.+)/)
-     {
-         $match->{summary} = $1;
-         while (<$refd>)
-         {
-             chomp;
-             next readdesc unless m/.+/;
-             $match->{summary} .= ' ' . $_;
-         }
+      if ($text_match_line >= $section->{start_line} &&
+          $text_match_line <= $section->{end_line})
+      {
+       $parse->{matches}->{$text_match_line} = $section;
+      }
      }
     }
 
-    next unless $published;
-    $seen{$location}++;
-    push @processed_matches, $match;
+    $match->{url} =~ s/TITLE/$parse->{title}/g;
+    $match->{url} =~ s/BASENODE/$match->{basenode}/g;
+    $match->{url} =~ s/NODE/$match->{node}/g;
+
+    foreach my $text_match_key (sort { $a <=> $b } keys %{$parse->{matches}})
+    {
+     my $text_match = $parse->{matches}->{$text_match_key};
+     next unless ref $text_match eq 'HASH';
+     push @processed_matches, { url => $match->{url}, summary => $text_match->{summary}, info => $text_match, match => $match };
+    }
+
+    my $count = scalar @processed_matches;
+    if ($count >= $max)
+    {
+     push @processed_matches, { url => "...", summary => "$count matches found, but only showing $max matches", info => undef, match => undef };
+     last;
+    }
    }
 
-   return @processed_matches if scalar @processed_matches < $max;
-
-   my $count = scalar @processed_matches;
-   splice @processed_matches, $max;
-   push @processed_matches, { url => "...", summary => "$count matches found, but only showing $max matches" };
    return @processed_matches;
 }
 
