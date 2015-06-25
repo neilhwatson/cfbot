@@ -14,3 +14,5 @@ irc:
   username: cfbot
 
 bug_tracker: "https://dev.cfengine.com/issues"
+max_records: 20
+cf_docs_url: "https://docs.cfengine.com/docs/master"

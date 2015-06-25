@@ -9,11 +9,10 @@ use Config::YAML;
 use Web::Query;
 use HTTP::Tiny;
 use Test::More;
-use POE
 
 our $VERSION = 0.01;
 
-my ( $c, $topics );
+my ( $c, $topics, $args );
 
 =pod
 
@@ -59,6 +58,7 @@ sub _get_cli_args
    # Set default CLI args here. Getopts will override.
    my %arg = (
       home => $cwd,
+      docs_repo => $cwd,
    );
 
    my @args = @_;
@@ -70,7 +70,8 @@ sub _get_cli_args
       'help|?',
       'version',
       'test',
-      'home:s'
+      'docs_repo:s',
+      'home:s',
    )
    or eval
    {
@@ -129,6 +130,77 @@ sub lookup_topics
    push @found, "Topic [$args{keyword}] not found" if ( scalar @found < 1 );
 
    return \@found;
+}
+
+sub find_matches
+# Find keyword matches in CFEngine documentation
+{
+   my $word = shift;
+   my $documentation_checkout = $args->{docs_repo};
+   unless (chdir $documentation_checkout)
+   {
+       warn "Couldn't change into '$documentation_checkout': $!";
+       return;
+   }
+
+   my $matches = `git grep '$word' | grep 'reference/functions/'`;
+
+   my @matches = map { { data => $_ } } split "\n", $matches;
+
+   my %seen;
+
+   my @processed_matches;
+   foreach my $match (@matches)
+   {
+    my ($location, $data) = split ':', $match->{data}, 2;
+    next if exists $seen{$location};
+
+    my $published = 0;
+    $match->{location} = $location;
+    $match->{url} = $location;
+
+    $match->{url} = "[URL unknown]";
+    open my $refd, '<', $location or warn "Couldn't open $location: $!";
+ readdesc: while (<$refd>)
+    {
+     chomp;
+     if (m/^title:\s+(.+)/)
+     {
+      my $title = $1;
+      $title =~ s/[]|"[]//g;
+      $match->{url} = "$c->{cf_docs_url}/reference-functions-$title.html";
+     }
+     elsif ($match->{summary} && m/^.+History:\W+\s+(.+)/)
+     {
+      $match->{summary} .= " ($1)";
+     }
+     elsif (m/^published: true/)
+     {
+      $published = 1;
+     }
+     elsif (m/^.+Description:\W+\s+(.+)/)
+     {
+         $match->{summary} = $1;
+         while (<$refd>)
+         {
+             chomp;
+             next readdesc unless m/.+/;
+             $match->{summary} .= ' ' . $_;
+         }
+     }
+    }
+
+    next unless $published;
+    $seen{$location}++;
+    push @processed_matches, $match;
+   }
+
+   return \@processed_matches if scalar @processed_matches < $c->{max_records};
+
+   my $count = scalar @processed_matches;
+   splice @processed_matches, $c->{max_records} - 1;
+   push @processed_matches, { url => "...", summary => "$count matches found, but only showing $c->{max_records} matches" };
+   return \@processed_matches;
 }
 
 sub get_bug
@@ -207,6 +279,17 @@ sub _run_tests
          name => \&_test_bug_number_invalid,
          arg  => 'xxxxx'
       },
+      t07 =>
+      {
+         name => \&_test_function_search,
+         arg  => 'data_expand'
+      },
+      t08 =>
+      {
+         name => \&_test_function_search_limit,
+         arg  => 'the'
+      },
+
    );
 
    # Run tests in order
@@ -232,7 +315,7 @@ sub _test_topic_lookup
    my $topics = lookup_topics( keyword => $keyword );
 
    is( $topics->[0],
-      "Test topic: This topic is for testing the cfbot. Do not remove it.",
+      "Test topic: This topic is for testing the cfbot. Do not remove.",
       "Testing a topic lookup"
    );
 }
@@ -285,12 +368,36 @@ sub _test_bug_number_invalid
    }
 }
 
+sub _test_function_search
+{
+   my $keyword = shift;
+   my $matches = find_matches( $keyword );
+   subtest 'Search CFEngine documentation' => sub
+   {
+      is( $matches->[0]{url},
+         "$c->{cf_docs_url}/reference-functions-$keyword.html",
+         "Function URL"
+      );
+      is( $matches->[0]{summary},
+         "Transforms a data container to expand all variable references. (Was introduced in version 3.7.0 (2015))",
+         "Function summary"
+      );
+   }
+}
+
+sub _test_function_search_limit
+{
+   my $keyword = shift;
+   my $matches = find_matches( $keyword );
+   ok( scalar @{ $matches } <= $c->{max_records}, "Limit number of returned records" );
+}
+ 
 #
 # Main matter
 #
 
 # Process CLI args
-my $args = _get_cli_args( @ARGV );
+$args = _get_cli_args( @ARGV );
 
 if ( $args->{help} )
 {
