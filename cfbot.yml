@@ -1,0 +1,18 @@
+--- 
+irc: 
+  alt_nicks: 
+    - cfbot_
+    - cfbot__
+  channels: 
+    - "#cfengine"
+  name: "CFEngine chat bot"
+  nick: cfbot_testing
+  port: 6697
+  server: irc.freenode.net
+  ssl: 1
+  useipv6: 1
+  username: cfbot
+
+bug_tracker: "https://dev.cfengine.com/issues"
+max_records: 20
+cf_docs_url: "https://docs.cfengine.com/docs/master"
