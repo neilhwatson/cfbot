@@ -18,13 +18,62 @@ my ( $c, $topics, $args );
 
 =head1 SYNOPSIS
 
-Is an IRC chat bot for CFEngine channels on freenode.
+C<< cfbot [-h|--home] <basedire> [-t|--test] [-do|--docs_repo] <dir> [-de|--debug] [-he|-?|--help] >>
+Is an IRC chat bot for CFEngine channels on freenode. Run this
+script by hand for testing a hacking. Use the daemon.pl script to
+run cfbot.pl is regular service.
+
+=head2 OPTIONS
+
+=over 3
+
+=item
+
+C<< -h <basedir> >> Directory to find configuration file, CFEngine
+documentation file, and topic file. Defaults to the current directory.
+
+=item
+
+C<< -do <dir> >> points to an on disk clone of the CFEngine documentation repository
+(L<https://github.com/cfengine/documentation>. Defaults to the current directory.
+
+=item
+
+C<< -t|--test >> Run developer test suite.
+
+=back
 
 =head2 REQUIREMENTS
 
 Also needs POE::Component::SSLify, and POE::Component::Client::DNS.
 Known as libbot-basicbot-perl, libpoe-component-sslify-perl, and
 libpoe-component-client-dns-perl on Debian.
+
+=head2 HACKING
+
+=over 3
+
+=item
+
+To add new topics, edit the F<cfbot> file using the format of existing entries.
+
+=item
+
+The configuration file is F<cfbot.yml>.
+
+=item
+
+Use the test suite whenever possible. Add new tests with new features.
+
+=item
+
+Generally, bot responses come out of a dispatch table. All such response subs
+require the same input and output. A single string for input while output takes
+two forms. The first is to send the message or messages to STDOUT in the sub.
+The second is to return an array reference containing the output. The former
+will go the the IRC channel, the latter is used by the test suite.
+
+=back
 
 =head1 AUTHOR
 
@@ -58,7 +107,7 @@ sub _get_cli_args
    # Set default CLI args here. Getopts will override.
    my %arg = (
       home => $cwd,
-      docs_repo => $cwd,
+      docs_repo => $cwd."/documentation",
    );
 
    my @args = @_;
@@ -70,6 +119,7 @@ sub _get_cli_args
       'help|?',
       'version',
       'test',
+      'debug',
       'docs_repo:s',
       'home:s',
    )
@@ -120,15 +170,17 @@ sub load_topics
 
 sub lookup_topics
 {
-   my %args = @_;
+   my $keyword = shift;
+
    my @found;
    for my $topic ( keys %{ $topics } )
    {
-      push @found, "$topic: $topics->{$topic}" if ( $topic =~ m/$args{keyword}/i )
+      push @found, "$topic: $topics->{$topic}" if ( $topic =~ m/$keyword/i )
    }
 
-   push @found, "Topic [$args{keyword}] not found" if ( scalar @found < 1 );
+   push @found, "Topic [$keyword] not found" if ( scalar @found < 1 );
 
+   say $_ foreach ( @found );
    return \@found;
 }
 
@@ -136,10 +188,13 @@ sub find_matches
 # Find keyword matches in CFEngine documentation
 {
    my $word = shift;
+
+   say "word [$word]" if $args->{debug};
+
    my $documentation_checkout = $args->{docs_repo};
    unless (chdir $documentation_checkout)
    {
-       warn "Couldn't change into '$documentation_checkout': $!";
+       say "Couldn't change into '$documentation_checkout': $!";
        return;
    }
 
@@ -156,11 +211,14 @@ sub find_matches
     next if exists $seen{$location};
 
     my $published = 0;
-    $match->{location} = $location;
-    $match->{url} = $location;
 
     $match->{url} = "[URL unknown]";
-    open my $refd, '<', $location or warn "Couldn't open $location: $!";
+    $match->{summary} = "[Summary not found]";
+
+    open my $refd, '<', $location or say "Couldn't open $location: $!";
+
+    say "Opened file at $location" if $args->{debug};
+
  readdesc: while (<$refd>)
     {
      chomp;
@@ -192,52 +250,59 @@ sub find_matches
 
     next unless $published;
     $seen{$location}++;
-    push @processed_matches, $match;
+    push @processed_matches, "$match->{url} $match->{summary}";
    }
 
-   return \@processed_matches if scalar @processed_matches < $c->{max_records};
+   if ( scalar @processed_matches < $c->{max_records} )
+   {
+      say $_ foreach ( @processed_matches);
+      return \@processed_matches;
+   }
 
    my $count = scalar @processed_matches;
    splice @processed_matches, $c->{max_records} - 1;
-   push @processed_matches, { url => "...", summary => "$count matches found, but only showing $c->{max_records} matches" };
+   push @processed_matches, "... $count matches found, but only showing $c->{max_records} matches";
+
+   say $_ foreach ( @processed_matches);
    return \@processed_matches;
 }
 
 sub get_bug
 {
    my $bug_number = shift;
-   my %return = (
-      subject  => "",
-      response => "Unexpected error"
-   );
+   my @return;
+   my $message = "Unexpected error in retreiving bug $bug_number";
    my $url = "$c->{bug_tracker}/$bug_number";
 
    unless ( $bug_number =~ m/\A\d{1,6}\Z/ )
    {
-      $return{response} = "[$bug_number] is not a valid bug number";
+      push @return, "[$bug_number] is not a valid bug number";
    }
    else
    {
       my %responses = (
          200 => $url,
-         404 => "Bug $bug_number not found"
+         404 => "Bug $bug_number not found",
+         500 => "Web server error from $url"
       );
 
       my $client = HTTP::Tiny->new();
       my $response = $client->get( "$c->{bug_tracker}/$bug_number" );
       for my $key (keys %responses)
       {
-         $return{response} = $responses{$key} if $response->{status} == $key;
+         $message = $responses{$key} if $response->{status} == $key;
       }
 
       if ( $response->{status} == 200 )
       {
          my $q = Web::Query->new_from_html( \$response->{content} );
-         $return{subject} = $q->find( 'div.subject' )->text;
-         $return{subject} =~ s/\A\s+|\s+\Z//g; # trim leading and trailing whitespace
+         $message = $url .' '. $q->find( 'div.subject' )->text;
+         $message =~ s/\A\s+|\s+\Z//g; # trim leading and trailing whitespace
       }
    }
-   return \%return;
+   push @return, $message;
+   say $_ foreach ( @return );
+   return \@return;
 }
 #
 # Testing subs
@@ -245,7 +310,7 @@ sub get_bug
 sub _run_tests
 {
    my %tests = (
-      # Name test 't\d\d' to ensure order
+      # Name your tests 't\d\d' to ensure order
       t01 =>
       {
          name => \&_test_doc_help,
@@ -265,7 +330,7 @@ sub _run_tests
       {
          name => \&_test_bug_exists,
          arg  => {
-            bug => '2333',
+            bug     => '2333',
             subject => "Variables not expanded inside array"
          }
       },
@@ -289,7 +354,6 @@ sub _run_tests
          name => \&_test_function_search_limit,
          arg  => 'the'
       },
-
    );
 
    # Run tests in order
@@ -307,12 +371,12 @@ sub _test_doc_help
    like( $help, qr/Usage:.*?Requirements/ms,  "[$0] -h, for usage" );
 }
 
-# Why test the actual traffic? Why not test the subs that return test from
-# queries?
+# We test what the subs that return test from queries. IRC connection not
+# required.
 sub _test_topic_lookup
 {
    my $keyword = shift;
-   my $topics = lookup_topics( keyword => $keyword );
+   my $topics = lookup_topics( $keyword );
 
    is( $topics->[0],
       "Test topic: This topic is for testing the cfbot. Do not remove.",
@@ -323,7 +387,7 @@ sub _test_topic_lookup
 sub _test_topic_not_found
 {
    my $keyword = shift;
-   my $topics = lookup_topics( keyword => $keyword );
+   my $topics = lookup_topics( $keyword );
 
    is( $topics->[0],
       "Topic [$keyword] not found",
@@ -333,39 +397,28 @@ sub _test_topic_not_found
 
 sub _test_bug_exists
 {
-   my $args = shift;
-   my $bug = get_bug( $args->{bug} );
+   my $bug = shift;
+   my $msg = get_bug( $bug );
 
    subtest 'Lookup existing bug' => sub
    {
-      is( $bug->{response}, "$c->{bug_tracker}/$args->{bug}", "URL correct?" );
-      is( $bug->{subject}, "Variables not expanded inside array", "Subject correct?" );
+      like( $msg->[0], qr|\A$c->{bug_tracker}/$bug|, "URL correct?" );
+      like( $msg->[0], qr|Variables not expanded inside array\Z|, "Subject correct?" );
    }
 }
 
 sub _test_bug_not_found
 {
-   my $bug_number = shift;
-   my $bug = get_bug( $bug_number );
-
-   subtest 'Lookup a none existing bug' => sub
-   {
-      is( $bug->{response}, "Bug $bug_number not found", "Bug not found" );
-      is( $bug->{subject}, "", "No subject because bug not found" );
-   }
+   my $bug = shift;
+   my $msg = get_bug( $bug );
+   is( $msg->[0], "Bug [$bug] not found", "Bug not found" );
 }
-
 
 sub _test_bug_number_invalid
 {
-   my $bug_number = shift;
-   my $bug = get_bug( $bug_number );
-
-   subtest 'Lookup a bug with an invalid number' => sub
-   {
-      is( $bug->{response}, "[$bug_number] is not a valid bug number", "Bug number invalid" );
-      is( $bug->{subject}, "", "No subject because bug invalid" );
-   }
+   my $bug = shift;
+   my $msg = get_bug( $bug );
+   is( $msg->[0], "[$bug] is not a valid bug number", "Bug number invalid" );
 }
 
 sub _test_function_search
@@ -374,12 +427,12 @@ sub _test_function_search
    my $matches = find_matches( $keyword );
    subtest 'Search CFEngine documentation' => sub
    {
-      is( $matches->[0]{url},
-         "$c->{cf_docs_url}/reference-functions-$keyword.html",
+      like( $matches->[0],
+         qr|\A$c->{cf_docs_url}/reference-functions-$keyword.html|,
          "Function URL"
       );
-      is( $matches->[0]{summary},
-         "Transforms a data container to expand all variable references. (Was introduced in version 3.7.0 (2015))",
+      like( $matches->[0],
+         qr/Transforms a data container to expand all variable references\. \(Was introduced in version 3\.7\.0 \(2015\)\)\Z/,
          "Function summary"
       );
    }
@@ -425,22 +478,167 @@ if ( $args->{test} )
 }
 
 # Start the bot
-Cfbot->new( %{ $c->{irc} } )->run;
+my $bot = Cfbot->new( %{ $c->{irc} } )->run;
 
 package Cfbot;
 use base 'Bot::BasicBot'; 
+use Data::Dumper;
+use POE::Kernel;
 
+my @kids;
 #
-# Subs that override Bot::BasicBot's own subs
+# Subs that override Bot::BasicBot's own subs.
 #
 sub said
 {
    my $self = shift;
    my $msg = shift;
+   my $replies;
 
-   if ( $msg->{body} =~ m/\A!cfbot\s+(.*)\Z/ )
+# New feature subs dispatch table.
+   my %dispatch = (
+         bug    => \&main::get_bug,
+         search => \&main::find_matches,
+   );
+
+   my $arg = 'undef';
+
+   if ( $msg->{body} =~ m/\A!cfbot\s+(\w+)\s*(.*)\Z/ )
    {
-      my $reply = "I recieved your command $1";
-      $self->reply( $msg, $reply );
+      my $firstword = $1;
+      $arg = $2;
+
+      if ( grep { $_ eq $firstword } keys %dispatch )
+      {
+         warn "dispatch is [$firstword]" if ( $args->{debug} );
+         warn "arg      is [$arg]"       if ( $args->{debug} );
+
+         # Dispatch table items are forked here.
+         $self->forkit(
+            run       => $dispatch{$firstword},
+            arguments => [ $arg ],
+            channel   => $c->{irc}{channels}[0],
+         );
+      }
+      else
+      {
+         ( my $keyword ) = $msg->{body} =~ m/\A!cfbot\s+(.+)\Z/;
+         # This is for topics in the cfbot file.
+         
+         warn "looking up topic [$keyword]" if ( $args->{debug} );
+         
+         $self->forkit(
+            run       => \&main::lookup_topics,
+            arguments => [ $keyword ],
+            channel   => $c->{irc}{channels}[0],
+         );
+      }
    }
+   elsif ( $args->{debug} )
+   {
+      push @{ $replies }, "I ignored the message [$msg->{body}]";
+   }
+   $self->reply( $msg, $_ ) foreach ( @{ $replies } );
 }
+
+sub forkit {
+# Overriding this one because the original has a bug.
+    my $self = shift;
+    my $args;
+
+    if (ref($_[0])) {
+        $args = shift;
+    }
+    else {
+        my %args = @_;
+        $args = \%args;
+    }
+
+    return if !$args->{run};
+
+    $args->{handler}   = $args->{handler}   || "_fork_said";
+    $args->{arguments} = $args->{arguments} || [];
+
+    # Install a new handler in the POE kernel pointing to
+    # $self->{$args{handler}}
+    $poe_kernel->state( $args->{handler}, $args->{callback} || $self  );
+
+    my $run;
+    if (ref($args->{run}) =~ /^CODE/) {
+        $run = sub {
+            # Remove body from args, possible bug in orginal.
+            $args->{run}->( @{ $args->{arguments} })
+        };
+    }
+    else {
+        $run = $args->{run};
+    }
+    my $wheel = POE::Wheel::Run->new(
+        Program      => $run,
+        StdoutFilter => POE::Filter::Line->new(),
+        StderrFilter => POE::Filter::Line->new(),
+        StdoutEvent  => "$args->{handler}",
+        StderrEvent  => "fork_error",
+        CloseEvent   => "fork_close"
+    );
+
+    # Use a signal handler to reap dead processes
+    $poe_kernel->sig_child($wheel->PID, "got_sigchld");
+
+    # Store the wheel object in our bot, so we can retrieve/delete easily.
+    $self->{forks}{ $wheel->ID } = {
+        wheel => $wheel,
+        args  => {
+            channel => $args->{channel},
+            who     => $args->{who},
+            address => $args->{address}
+        }
+    };
+    return;
+}
+
+=pod
+
+How to run event tickers? There will be mulitples, following bug feed and
+multiple repo feeds. Suggest in a tick sub.
+
+Another matter is not to prevent the repeat of events? Must be dealt with in
+each sub I believe.
+
+sub tick
+{
+   my $wake_interval{minutes} = 60 # minutes TODO put in config file
+   $wake_interval{seconds} = $wake_interval{minutes} * 60;
+   
+my @events => (
+   {
+      sub => \&main::github,
+      arg => <repo url 1>
+   },
+   {
+      sub => \&main::github,
+      arg => <repo url 2>
+   },
+   {
+      sub => \&main::redmind,
+      arg => <url 1>
+   }
+);
+
+my $sleep_interval = $wake_interval{seconds} / $#events;
+
+for my $e ( @events )
+{
+   forkit(
+      run       => $e->{sub},
+      arguments => [ $e->{arg} ],
+      channel   => $c->{irc}{channels}[0],
+   );
+
+   sleep $sleep_interval;
+}
+
+return $wake_interval{seconds};
+}
+
+=cut
