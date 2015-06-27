@@ -282,7 +282,7 @@ sub get_bug
    {
       my %responses = (
          200 => $url,
-         404 => "Bug $bug_number not found",
+         404 => "Bug [$bug_number] not found",
          500 => "Web server error from $url"
       );
 
@@ -329,10 +329,7 @@ sub _run_tests
       t04 =>
       {
          name => \&_test_bug_exists,
-         arg  => {
-            bug     => '2333',
-            subject => "Variables not expanded inside array"
-         }
+         arg  => '2333',
       },
       t05 =>
       {
