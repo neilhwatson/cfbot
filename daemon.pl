@@ -5,7 +5,7 @@ use warnings;
 use Proc::Daemon;
 use Cwd;
 use Pod::Usage;
-# libproc-daemon-perl libproc-pid-file-perl
+# libproc-daemon-perl 
 
 =pod
 
@@ -58,7 +58,7 @@ sub usage
 }
 
 my $cmd = shift;
-print $cmd;
+
 unless ( scalar @ARGV == 0 and
    $cmd =~ m/\Astart|stop|restart\Z/i )
 {
@@ -74,14 +74,31 @@ my $d = Proc::Daemon->new(
    exec_command => $cwd."/cfbot.pl",
 );
 
+my %subs = ( 
+   start   => \&start,
+   stop    => \&stop,
+   restart => \&restart
+);
+
+$subs{$cmd}->();
+
 sub start
 {
-   my $pid = $d->Init();
+   my $pid = $d->Init()
 }
 
 sub stop
 {
+   my $pid;
    open my $fh, '<', $pid_file
       or die "Cannot open pid file [$pid_file]";
+   $pid .= $_ while (<$fh>);
+   close $fh;
+   kill 'TERM', $pid;
+} 
 
-
+sub restart
+{
+   stop();
+   start();
+}
