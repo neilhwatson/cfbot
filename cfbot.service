@@ -7,8 +7,8 @@ Description=cfbot IRC chat bot for cfengine channel on freenode.
 [Service]
 Type=forking
 PIDFile=/home/cfbot/cfbot/cfbot.pid
-ExecStart=/home/cfbot/cfbot/daemon.pl start
-ExecStop=/home/cfbot/cfbot/daemon.pl stop
+ExecStart=/home/cfbot/cfbot/daemon.pl -start
+ExecStop=/home/cfbot/cfbot/daemon.pl -stop
 Restart=always
 
 [Install]

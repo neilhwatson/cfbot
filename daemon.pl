@@ -11,7 +11,7 @@ use Pod::Usage;
 
 =head1 SYNOPSIS
 
-C<< daemon [stat|stop|restart] >>
+C<< daemon [-d|--dir <working directory> [-stat|-stop|-restart] >>
 
 This script starts cfbot.pl as a daemon for normal use.
 
@@ -57,6 +57,9 @@ sub _get_cli_args
       \%arg,
       'help|?',
       'version',
+      'start',
+      'stop',
+      'restart',
       'dir:s',
    )
    or eval
@@ -101,16 +104,6 @@ elsif ( $args->{version} )
 }
 =cut
 
-
-my $cmd = shift;
-
-unless ( scalar @ARGV == 0 and
-   $cmd =~ m/\Astart|stop|restart\Z/i )
-{
-   usage( 'USAGE' );
-   exit 1;
-}
-
 #my $args->{dir} = getcwd();
 my $pid_file = $args->{dir}."/cfbot.pid";
 my $d = Proc::Daemon->new(
@@ -127,7 +120,24 @@ my %subs = (
    restart => \&restart
 );
 
-$subs{$cmd}->();
+if ( $args->{start} )
+{
+   start();
+}
+elsif ( $args->{stop} )
+{
+   stop();
+}
+elsif ( $args->{restart} )
+{
+   stop();
+   start();
+}
+else
+{
+   usage( 'USAGE' );
+   exit 1;
+}
 
 sub start
 {
