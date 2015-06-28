@@ -72,6 +72,8 @@ my $d = Proc::Daemon->new(
    work_dir     => $cwd,
    pid_file     => $pid_file,
    exec_command => $cwd."/cfbot.pl",
+   setuid       => 'cfbot',
+   setgid       => 'cfbot',
 );
 
 my %subs = ( 
