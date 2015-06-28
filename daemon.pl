@@ -46,7 +46,7 @@ sub _get_cli_args
    my $args->{dir} = getcwd();
    # Set default CLI args here. Getopts will override.
    my %arg = (
-      dir => 'home/cfbot/cfbot'
+      dir => '/home/cfbot/cfbot'
    );
 
    my @args = @_;
