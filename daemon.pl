@@ -38,6 +38,35 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
+sub _get_cli_args
+{
+   use Getopt::Long qw/GetOptionsFromArray/;
+   use Cwd;
+
+   my $args->{dir} = getcwd();
+   # Set default CLI args here. Getopts will override.
+   my %arg = (
+      dir => 'home/cfbot/cfbot'
+   );
+
+   my @args = @_;
+
+   GetOptionsFromArray
+   (
+      \@args,
+      \%arg,
+      'help|?',
+      'version',
+      'dir:s',
+   )
+   or eval
+   {
+      usage( 'USAGE' );
+      exit 1;
+   };
+   return \%arg;
+}
+
 sub usage
 {
    my $msg = shift;
@@ -57,6 +86,22 @@ sub usage
    );
 }
 
+my $args = _get_cli_args( @ARGV );
+
+if ( $args->{help} )
+{
+   usage( 'HELP' );
+   exit;
+}
+=pod
+elsif ( $args->{version} )
+{
+   say $VERSION;
+   exit;
+}
+=cut
+
+
 my $cmd = shift;
 
 unless ( scalar @ARGV == 0 and
@@ -66,12 +111,12 @@ unless ( scalar @ARGV == 0 and
    exit 1;
 }
 
-my $cwd = getcwd();
-my $pid_file = $cwd."/cfbot.pid";
+#my $args->{dir} = getcwd();
+my $pid_file = $args->{dir}."/cfbot.pid";
 my $d = Proc::Daemon->new(
-   work_dir     => $cwd,
+   work_dir     => $args->{dir},
    pid_file     => $pid_file,
-   exec_command => $cwd."/cfbot.pl",
+   exec_command => $args->{dir}."/cfbot.pl",
    setuid       => 'cfbot',
    setgid       => 'cfbot',
 );
