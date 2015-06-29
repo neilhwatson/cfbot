@@ -267,6 +267,7 @@ sub find_matches
    return \@processed_matches;
 }
 
+
 sub get_bug
 {
    my $bug_number = shift;
@@ -304,6 +305,40 @@ sub get_bug
    say $_ foreach ( @return );
    return \@return;
 }
+
+sub redmine_atom_feed
+{
+   my @events;
+   my $feed = shift;
+   $feed = XML::Feed->parse( URI->new( $feed )) or
+      die "Feed error with [$feed] ".XML::Feed->errstr;
+
+   for my $e ( $feed->entries )
+   {
+      if ( entry_new( updated => $e->updated, newer_than => $c->{newer_than} ) )
+      {
+         push @events, $e->title .", ". $e->link;
+      }
+   }
+   say $_ foreach ( @events );
+   return \@events;
+}
+
+sub entry_new
+{
+   # Expects newer_than to be in minutes.
+   my %args = @_;
+
+   $args{updated} =~ s/Z\Z//g;
+   $args{updated} = Time::Piece->strptime( $args{updated}, "%Y-%m-%dT%H:%M:%S" );
+
+   my $now  = Time::Piece->gmtime();
+   $args{newer_than} = $now - $args{newer_than} * 60;
+
+   return 1 if (  $args{updated} > $args{newer_than} );
+   return 0;
+}
+
 #
 # Testing subs
 #
@@ -353,6 +388,8 @@ sub _run_tests
       },
    );
 
+   # TODO test newer than sub.
+   # TODO test redmine feed sub.
    # Run tests in order
    for my $test ( sort keys %tests )
    {

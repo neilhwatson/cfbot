@@ -15,4 +15,6 @@ irc:
 
 bug_tracker: "https://dev.cfengine.com/issues"
 max_records: 20
-cf_docs_url: "https://docs.cfengine.com/docs/master"
+cf_docs_url: "https://docs.cfengine.com/latest"
+# Get records from feeds newer than (minutes)
+newer_than: 5
