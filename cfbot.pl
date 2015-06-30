@@ -16,6 +16,7 @@ use JSON;
 our $VERSION = 1.0;
 
 my ( $c, $topics, $args, $words_of_wisdom );
+my $hush = 0;
 
 =pod
 
@@ -151,6 +152,26 @@ sub usage
       -sections => "$section",
       -msg      => $msg
    );
+}
+
+sub hush
+{
+   my @responses = (
+      "I'll be good.",
+      "Hushing",
+      "Hrumph",
+      qw/>:[ :-( :( :-c :c :-< :< :-[ :[ :{ :-|| :@ >:( :'-( :'(/,
+      "Shutting up now.",
+      "But, but...",
+      "I'll be quiet."
+   );
+
+   srand();
+   my $response = $responses[ rand @responses ];
+
+   $hush = Time::Piece->localtime() + $c->{hush_time} * 60;
+   say $response;
+   return $response;
 }
 
 sub load_topics
@@ -357,7 +378,7 @@ sub git_feed
 
    for my $e ( @{ $events } )
    {
-      next unless entry_new ( updated => $e->{created_at}, newer_than => $args{newer_than} );
+      next unless time_cmp ( time => $e->{created_at}, newer_than => $args{newer_than} );
 
       my $msg;
       if ( $e->{type} eq 'PushEvent' )
@@ -407,7 +428,7 @@ sub atom_feed
 
    for my $e ( $feed->entries )
    {
-      if ( entry_new( updated => $e->updated, newer_than => $args{newer_than} ) )
+      if ( time_cmp( time => $e->updated, newer_than => $args{newer_than} ) )
       {
          push @events, $e->title .", ". $e->link;
       }
@@ -416,18 +437,18 @@ sub atom_feed
    return \@events;
 }
 
-sub entry_new
+sub time_cmp
 {
    # Expects newer_than to be in minutes.
    my %args = @_;
 
-   $args{updated} =~ s/Z\Z//g;
-   $args{updated} = Time::Piece->strptime( $args{updated}, "%Y-%m-%dT%H:%M:%S" );
+   $args{time} =~ s/Z\Z//g;
+   $args{time} = Time::Piece->strptime( $args{time}, "%Y-%m-%dT%H:%M:%S" );
 
    my $now  = Time::Piece->gmtime();
    $args{newer_than} = $now - $args{newer_than} * 60;
 
-   return 1 if (  $args{updated} > $args{newer_than} );
+   return 1 if (  $args{time} > $args{newer_than} );
    return 0;
 }
 
@@ -495,9 +516,14 @@ sub _run_tests
       },
       t10 =>
       {
-         name => \&test_words_of_wisdom,
+         name => \&_test_words_of_wisdom,
          arg => [ 'now' ],
       },
+      t11 =>
+      {
+         name => \&_test_hush,
+      }
+
    );
 
    # Run tests in order
@@ -611,13 +637,22 @@ sub _test_git_feed
    like( $events->[0], qr/\APull|Push/, 'Did an event return?' );
 }
 
-sub test_words_of_wisdom
+sub _test_words_of_wisdom
 {
    my $random = shift;
    my $wow = words_of_wisdom( $random );
    like( $wow, qr/\w+/, 'Is a string returned?' );
 }
 
+sub _test_hush
+{
+   my $msg = hush();
+   subtest 'hushing' => sub
+   {
+      like( $msg, qr/\S+/, "Hush returns a message" );
+      ok( $hush, '$hush is now true' );
+   }
+}
 #
 # Main matter
 #
@@ -672,6 +707,9 @@ sub said
    my $msg = shift;
    my $replies;
 
+   my $now = Time::Piece->localtime();
+   return if ( $now < $hush );
+
 # New feature subs dispatch table.
    my %dispatch = (
          bug    => \&main::get_bug,
@@ -679,9 +717,15 @@ sub said
          wow    => \&main::words_of_wisdom,
    );
 
+   # TODO move regexes into dispatch.
+   
    my $arg = 'undef';
 
-   if ( $msg->{body} =~ m/\A!$c->{irc}{nick}\s+(\w+)\s*([\w|\s]*)\Z/i )
+   if ( $msg->{body} =~ m/\A!$c->{irc}{nick}\s+hush.*\Z/i )
+   {
+      push @{ $replies }, main::hush();
+   }
+   elsif ( $msg->{body} =~ m/\A!$c->{irc}{nick}\s+(\w+)\s*([\w|\s]*)\Z/i )
    {
       my $firstword = $1;
       $arg = $2;
@@ -722,58 +766,58 @@ sub said
 
 sub forkit {
 # Overriding this one because the original has a bug.
-    my $self = shift;
-    my $args;
+   my $self = shift;
+   my $args;
 
-    if (ref($_[0])) {
-        $args = shift;
-    }
-    else {
-        my %args = @_;
-        $args = \%args;
-    }
+   if (ref($_[0])) {
+     $args = shift;
+   }
+   else {
+     my %args = @_;
+     $args = \%args;
+   }
 
-    return if !$args->{run};
+   return if !$args->{run};
 
-    $args->{handler}   = $args->{handler}   || "_fork_said";
-    $args->{arguments} = $args->{arguments} || [];
+   $args->{handler}   = $args->{handler}   || "_fork_said";
+   $args->{arguments} = $args->{arguments} || [];
 
-    # Install a new handler in the POE kernel pointing to
-    # $self->{$args{handler}}
-    $poe_kernel->state( $args->{handler}, $args->{callback} || $self  );
+# Install a new handler in the POE kernel pointing to
+# $self->{$args{handler}}
+   $poe_kernel->state( $args->{handler}, $args->{callback} || $self  );
 
-    my $run;
-    if (ref($args->{run}) =~ /^CODE/) {
-        $run = sub {
-            # Remove body from args, possible bug in orginal.
-            $args->{run}->( @{ $args->{arguments} })
-        };
-    }
-    else {
-        $run = $args->{run};
-    }
-    my $wheel = POE::Wheel::Run->new(
-        Program      => $run,
-        StdoutFilter => POE::Filter::Line->new(),
-        StderrFilter => POE::Filter::Line->new(),
-        StdoutEvent  => "$args->{handler}",
-        StderrEvent  => "fork_error",
-        CloseEvent   => "fork_close"
-    );
+   my $run;
+   if (ref($args->{run}) =~ /^CODE/) {
+     $run = sub {
+         # Remove body from args, possible bug in orginal.
+         $args->{run}->( @{ $args->{arguments} })
+     };
+   }
+   else {
+     $run = $args->{run};
+   }
+   my $wheel = POE::Wheel::Run->new(
+     Program      => $run,
+     StdoutFilter => POE::Filter::Line->new(),
+     StderrFilter => POE::Filter::Line->new(),
+     StdoutEvent  => "$args->{handler}",
+     StderrEvent  => "fork_error",
+     CloseEvent   => "fork_close"
+   );
 
-    # Use a signal handler to reap dead processes
-    $poe_kernel->sig_child($wheel->PID, "got_sigchld");
+# Use a signal handler to reap dead processes
+   $poe_kernel->sig_child($wheel->PID, "got_sigchld");
 
-    # Store the wheel object in our bot, so we can retrieve/delete easily.
-    $self->{forks}{ $wheel->ID } = {
-        wheel => $wheel,
-        args  => {
-            channel => $args->{channel},
-            who     => $args->{who},
-            address => $args->{address}
-        }
-    };
-    return;
+# Store the wheel object in our bot, so we can retrieve/delete easily.
+   $self->{forks}{ $wheel->ID } = {
+     wheel => $wheel,
+     args  => {
+         channel => $args->{channel},
+         who     => $args->{who},
+         address => $args->{address}
+     }
+   };
+   return;
 }
 
 sub tick
@@ -782,6 +826,9 @@ sub tick
    my %wake_interval;
    $wake_interval{seconds} = $c->{wake_interval} * 60;
    
+   my $now = Time::Piece->localtime();
+   return 60 if ( $now < $hush );
+
    my @events = (
       {
          name => \&main::atom_feed,

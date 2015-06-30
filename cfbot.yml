@@ -22,3 +22,4 @@ git_feed: "https://api.github.com/repos"
 wake_interval: 15
 # Get records from feeds newer than (minutes)
 newer_than: 15
+hush_time: 5
