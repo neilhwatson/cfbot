@@ -627,7 +627,7 @@ sub said
 
    my $arg = 'undef';
 
-   if ( $msg->{body} =~ m/\A!$c->{irc}{nick}\s+(\w+)\s*(.*)\Z/ )
+   if ( $msg->{body} =~ m/\A!$c->{irc}{nick}\s+(\w+)\s*([\w|\s]*)\Z/i )
    {
       my $firstword = $1;
       $arg = $2;
@@ -646,8 +646,9 @@ sub said
       }
       else
       {
-         ( my $keyword ) = $msg->{body} =~ m/\A!$c->{irc}{nick}\s+(.+)\Z/;
          # This is for topics in the cfbot file.
+         my $keyword = "$firstword $arg";
+         $keyword =~ s/\s*\Z//g;
          
          warn "looking up topic [$keyword]" if ( $args->{debug} );
          
