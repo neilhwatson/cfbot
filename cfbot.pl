@@ -362,7 +362,8 @@ sub git_feed
       my $msg;
       if ( $e->{type} eq 'PushEvent' )
       {
-         $msg = "Push in $args{owner}:$args{repo} by $e->{actor}{login}, ".
+         my $message = substr( $e->{payload}{commits}->[0]{message}, 0, 60 );
+         $msg = "Push in $args{owner}:$args{repo} by $e->{actor}{login}, $message ..., ".
             "https://github.com/$args{owner}/$args{repo}/commit/$e->{payload}{head}";
       }
       elsif ( $e->{type} eq 'PullRequestEvent' )
