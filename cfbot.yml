@@ -14,7 +14,11 @@ irc:
   username: cfbot
 
 bug_tracker: "https://dev.cfengine.com/issues"
+bug_feed: "https://dev.cfengine.com/projects/core/activity.atom"
 max_records: 20
 cf_docs_url: "https://docs.cfengine.com/latest"
+git_feed: "https://api.github.com/repos"
+# Interval to wake up and check feeds (minutes)
+wake_interval: 15
 # Get records from feeds newer than (minutes)
-newer_than: 5
+newer_than: 15

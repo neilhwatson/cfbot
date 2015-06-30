@@ -9,8 +9,11 @@ use Config::YAML;
 use Web::Query;
 use HTTP::Tiny;
 use Test::More;
+use Time::Piece;
+use XML::Feed;
+use JSON;
 
-our $VERSION = 0.01;
+our $VERSION = 1.0;
 
 my ( $c, $topics, $args );
 
@@ -306,16 +309,69 @@ sub get_bug
    return \@return;
 }
 
-sub redmine_atom_feed
+sub git_feed
 {
+   my %args = ( newer_than => $c->{newer_than}, @_);
+   
    my @events;
-   my $feed = shift;
-   $feed = XML::Feed->parse( URI->new( $feed )) or
-      die "Feed error with [$feed] ".XML::Feed->errstr;
+   my $client = HTTP::Tiny->new();
+   my $response = $client->get( "$args{feed}/$args{owner}/$args{repo}/events" );
+
+   my $j = JSON->new->pretty->allow_nonref;
+   my $events = $j->decode( $response->{content} );
+
+   for my $e ( @{ $events } )
+   {
+      next unless entry_new ( updated => $e->{created_at}, newer_than => $args{newer_than} );
+
+      my $msg;
+      if ( $e->{type} eq 'PushEvent' )
+      {
+         $msg = "Push in $args{owner}:$args{repo} by $e->{actor}{login}, ".
+            "https://github.com/$args{owner}/$args{repo}/commit/$e->{payload}{head}";
+      }
+      elsif ( $e->{type} eq 'PullRequestEvent' )
+      {
+         $msg = "Pull request $e->{payload}{action} in $args{owner}:$args{repo} ".
+            "by $e->{payload}{pull_request}{user}{login}, ".
+            "$e->{payload}{pull_request}{title}, ".
+            "$e->{payload}{pull_request}{url}";
+      }
+      elsif ( $e->{type} eq 'IssuesEvent' )
+      {
+         $msg = "Issue in $args{owner}:$args{repo} $e->{payload}{action} ".
+            "by $e->{payload}{issue}{user}{login}, $e->{payload}{issue}{title}, ".
+            "$e->{payload}{issue}{html_url}";
+      }
+
+      if ( $msg )
+      {
+         push @events, $msg;
+         say $msg;
+      }
+   }
+
+   if ( scalar @events > 0 )
+   {
+      return \@events;
+   }
+   else
+   {
+      return 0;
+   }
+}
+
+sub atom_feed
+{
+   my %args = ( newer_than => $c->{newer_than}, @_ );
+   my @events;
+
+   my $feed = XML::Feed->parse( URI->new( $args{feed} )) or
+      die "Feed error with [$args{feed}] ".XML::Feed->errstr;
 
    for my $e ( $feed->entries )
    {
-      if ( entry_new( updated => $e->updated, newer_than => $c->{newer_than} ) )
+      if ( entry_new( updated => $e->updated, newer_than => $args{newer_than} ) )
       {
          push @events, $e->title .", ". $e->link;
       }
@@ -349,51 +405,64 @@ sub _run_tests
       t01 =>
       {
          name => \&_test_doc_help,
-         arg  => '',
+         arg  => [ '' ],
       },
       t02 =>
       {
          name => \&_test_topic_lookup,
-         arg  => "Test topic",
+         arg  => [ 'Test topic' ],
       },
       t03 =>
       {
          name => \&_test_topic_not_found,
-         arg  => "xxxxxxx",
+         arg  => [ 'xxxxxxx' ],
       },
       t04 =>
       {
          name => \&_test_bug_exists,
-         arg  => '2333',
+         arg  => [ '2333' ],
       },
       t05 =>
       {
          name => \&_test_bug_not_found,
-         arg  => '999999',
+         arg  => [ '999999' ],
       },
       t06 =>
       {
          name => \&_test_bug_number_invalid,
-         arg  => 'xxxxx'
+         arg  => [ 'xxxxx' ]
       },
       t07 =>
       {
          name => \&_test_function_search,
-         arg  => 'data_expand'
+         arg  => [ 'data_expand' ]
       },
       t08 =>
       {
          name => \&_test_function_search_limit,
-         arg  => 'the'
+         arg  => [ 'the' ]
       },
+      t09 =>
+      {
+         name => \&_test_cfengine_bug_atom_feed,
+         arg => [ 'feed', "$c->{bug_feed}", "newer_than", 3000 ]
+      },
+      t09 =>
+      {
+         name => \&_test_git_feed,
+         arg => [
+            'feed', $c->{git_feed},
+            'owner', 'cfengine',
+            'repo', 'core',
+            'newer_than', '3000'
+            ]
+      }
    );
 
-   # TODO test newer than sub.
-   # TODO test redmine feed sub.
    # Run tests in order
    for my $test ( sort keys %tests )
    {
-      $tests{$test}->{name}->( $tests{$test}->{arg} );
+      $tests{$test}->{name}->( @{ $tests{$test}->{arg} } );
    }
    my $number_of_tests = keys %tests;
    done_testing ( $number_of_tests );
@@ -479,6 +548,27 @@ sub _test_function_search_limit
    ok( scalar @{ $matches } <= $c->{max_records}, "Limit number of returned records" );
 }
  
+sub _test_cfengine_bug_atom_feed
+{
+   my %args = @_;
+   my $events = atom_feed(
+      feed       => $args{feed},
+      newer_than => $args{newer_than}
+   );
+   like( $events->[0], qr/\ABug #\d+:.+\Z/, "Was a bug returned?" );
+}
+
+sub _test_git_feed
+{
+   my %args = @_;
+   my $events = git_feed(
+      feed => $args{feed},
+      owner => $args{owner},
+      repo => $args{repo},
+      newer_than => $args{newer_than}
+   );
+   like( $events->[0], qr/\APull|Push/, 'Did an event return?' );
+}
 #
 # Main matter
 #
@@ -537,7 +627,7 @@ sub said
 
    my $arg = 'undef';
 
-   if ( $msg->{body} =~ m/\A!cfbot\s+(\w+)\s*(.*)\Z/ )
+   if ( $msg->{body} =~ m/\A!$c->{irc}{nick}\s+(\w+)\s*(.*)\Z/ )
    {
       my $firstword = $1;
       $arg = $2;
@@ -556,7 +646,7 @@ sub said
       }
       else
       {
-         ( my $keyword ) = $msg->{body} =~ m/\A!cfbot\s+(.+)\Z/;
+         ( my $keyword ) = $msg->{body} =~ m/\A!$c->{irc}{nick}\s+(.+)\Z/;
          # This is for topics in the cfbot file.
          
          warn "looking up topic [$keyword]" if ( $args->{debug} );
@@ -631,48 +721,87 @@ sub forkit {
     return;
 }
 
-=pod
-
-How to run event tickers? There will be mulitples, following bug feed and
-multiple repo feeds. Suggest in a tick sub.
-
-Another matter is not to prevent the repeat of events? Must be dealt with in
-each sub I believe.
-
 sub tick
 {
-   my $wake_interval{minutes} = 60 # minutes TODO put in config file
-   $wake_interval{seconds} = $wake_interval{minutes} * 60;
+   my $self=shift;
+   my %wake_interval;
+   $wake_interval{seconds} = $c->{wake_interval} * 60;
    
-my @events => (
-   {
-      sub => \&main::github,
-      arg => <repo url 1>
-   },
-   {
-      sub => \&main::github,
-      arg => <repo url 2>
-   },
-   {
-      sub => \&main::redmind,
-      arg => <url 1>
-   }
-);
-
-my $sleep_interval = $wake_interval{seconds} / $#events;
-
-for my $e ( @events )
-{
-   forkit(
-      run       => $e->{sub},
-      arguments => [ $e->{arg} ],
-      channel   => $c->{irc}{channels}[0],
+   my @events = (
+      {
+         name => \&main::atom_feed,
+         arg  => [ 'feed', "$c->{bug_feed}" ]
+      },
+      {
+         name => \&main::git_feed,
+         arg  => [
+            'feed', $c->{git_feed},
+            'owner', 'cfengine',
+            'repo', 'core',
+         ]
+      },
+      {
+         name => \&main::git_feed,
+         arg  => [
+            'feed', $c->{git_feed},
+            'owner', 'cfengine',
+            'repo', 'masterfiles',
+         ]
+      },
+      {
+         name => \&main::git_feed,
+         arg  => [
+            'feed', $c->{git_feed},
+            'owner', 'evolvethinking',
+            'repo', 'evolve_cfengine_freelib',
+         ]
+      },
+      {
+         name => \&main::git_feed,
+         arg  => [
+            'feed', $c->{git_feed},
+            'owner', 'evolvethinking',
+            'repo', 'delta_reporting',
+         ]
+      },
+      {
+         name => \&main::git_feed,
+         arg  => [
+            'feed', $c->{git_feed},
+            'owner', 'neilhwatson',
+            'repo', 'vim_cf3',
+         ]
+      },
+      {
+         name => \&main::git_feed,
+         arg  => [
+            'feed', $c->{git_feed},
+            'owner', 'neilhwatson',
+            'repo', 'cfbot',
+         ]
+      },
    );
 
-   sleep $sleep_interval;
+   my $sleep_interval = $wake_interval{seconds} / scalar @events;
+
+   for my $e ( @events )
+   {
+      $self->forkit(
+         run       => $e->{name},
+         arguments => $e->{arg},
+         channel   => $c->{irc}{channels}[0],
+      );
+      #sleep $sleep_interval;
+   }
+   return $wake_interval{seconds};
 }
 
-return $wake_interval{seconds};
+sub help
+{
+   my $self = shift;
+   $self->forkit(
+      run       => \&main::lookup_topics,
+      arguments => [ 'help' ],
+      channel   => $c->{irc}{channels}[0],
+   );
 }
-
-=cut
