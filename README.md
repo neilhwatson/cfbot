@@ -13,5 +13,5 @@ Query the bot for EFL with !cfbot EFL and the definition for EFL will appear in 
 
 ### Adding the knowledge base
 
-1. Edit the file cfbot, honouring the existing format.
+1. Edit the files topics or words\_of\_wisdom, honouring the existing format.
 1. Submit a pull request.

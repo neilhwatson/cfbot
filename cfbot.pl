@@ -15,7 +15,7 @@ use JSON;
 
 our $VERSION = 1.0;
 
-my ( $c, $topics, $args );
+my ( $c, $topics, $args, $words_of_wisdom );
 
 =pod
 
@@ -169,6 +169,41 @@ sub load_topics
    close $fh;
 
    return \%topics;
+}
+
+sub load_words_of_wisdom
+{
+   my %args = @_;
+   my @words_of_wisdom;
+
+   open( my $fh, '<', $args{file} ) or warn "Cannot open $args{file}, $!";
+
+   while (<$fh> )
+   {
+      next if m/\A\s*#/;
+      chomp;
+      push @words_of_wisdom, $_;
+   }
+   close $fh;
+
+   return \@words_of_wisdom;
+}
+
+sub words_of_wisdom
+{
+   my $random = shift;
+   my $wow;
+   my $d4 = int( rand( 3 ));
+
+   if ( $random eq 'now' or $d4 == 3 )
+   {
+      warn 'going random';
+      srand;
+      $wow = $words_of_wisdom->[rand @{ $words_of_wisdom }];
+      warn "got wow = $wow";
+   }
+   say $wow;
+   return $wow
 }
 
 sub lookup_topics
@@ -456,7 +491,12 @@ sub _run_tests
             'repo', 'core',
             'newer_than', '3000'
             ]
-      }
+      },
+      t10 =>
+      {
+         name => \&test_words_of_wisdom,
+         arg => [ 'now' ],
+      },
    );
 
    # Run tests in order
@@ -569,6 +609,14 @@ sub _test_git_feed
    );
    like( $events->[0], qr/\APull|Push/, 'Did an event return?' );
 }
+
+sub test_words_of_wisdom
+{
+   my $random = shift;
+   my $wow = words_of_wisdom( $random );
+   like( $wow, qr/\w+/, 'Is a string returned?' );
+}
+
 #
 # Main matter
 #
@@ -591,8 +639,12 @@ elsif ( $args->{version} )
 $c = Config::YAML->new( config => "$args->{home}/cfbot.yml" );
 
 # Load topics file
-my $topics_file = "$args->{home}/cfbot";
+my $topics_file = "$args->{home}/topics";
 $topics = load_topics( file => $topics_file );
+
+# Load words of wisdom
+my $wow_file = "$args->{home}/words_of_wisdom";
+$words_of_wisdom = load_words_of_wisdom( file => $wow_file );
 
 # Run test suite
 if ( $args->{test} )
@@ -623,6 +675,7 @@ sub said
    my %dispatch = (
          bug    => \&main::get_bug,
          search => \&main::find_matches,
+         wow    => \&main::words_of_wisdom,
    );
 
    my $arg = 'undef';
@@ -780,6 +833,10 @@ sub tick
             'owner', 'neilhwatson',
             'repo', 'cfbot',
          ]
+      },
+      {
+         name => \&main::words_of_wisdom,
+         arg  => [],
       },
    );
 

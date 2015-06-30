@@ -1,0 +1,24 @@
+# Words of wisdom that the bot might say.
+Don't write your own CFEngine policy, use existing frameworks and save time.
+A self healing infracstructure means more uninterrrupted vacation time.
+Use vim_cf3 to edit your CFEngine policy in VIM: https://github.com/neilhwatson/vim_cf3 
+Use cfengine.el to edit your CFEngine in EMACS: https://github.com/cfengine/core/blob/master/contrib/cfengine.el 
+A mistake in your CFEngine policy is a mistake duplicated over a thousand hosts. Fully test your policy.
+A well crafted cron script can rescue a broken CFEngine agent.
+Third party CFEngine consultants: http://www.verticalsysadmin.com/cfengine/ps.htm
+A CFEngine blog: http://cfengine.com/blog/
+A CFEngine blog: http://evolvethinking.com/category/cfengine/
+A CFEngine blog: http://www.cmdln.org/tag/cfengine/
+A CFEngine blog: http://syslog.me/tag/cfengine/
+A primer on autorunning your CFEngine policies: https://digitalelf.net/2014/07/a-primer-on-cfengine-3-dot-6-autorun/
+Promising a whole file is better than promising a portion of it.
+The CFEngine mailing list: https://groups.google.com/forum/#!forum/help-cfengine
+When writing promises think of the end state and not the procedure to get there.
+If you write your own CFEngine policy make it as reusable as possible.
+Use comments, handles, and promisees to document your promises.
+Embrace normal ordering, do not try to change it.
+Like crond, CFEngine's environment when it starts a shell process is different than your shell environment. Test commands promises carefully.
+The program cf-promises is a syntax checker and more. See cf-promises --help.
+Central promise reporting is avaiable through CFEngine addons CFEngine Enterprise, Rudder, and Delta Reporting. Search topics for more info.
+Ask me for help.
+Ask me about CFEngine best practices to learn form CFEngine Champions.
