@@ -106,12 +106,14 @@ elsif ( $args->{version} )
 
 #my $args->{dir} = getcwd();
 my $pid_file = $args->{dir}."/cfbot.pid";
+my $uid = getpwnam( 'cfbot' );
+my $gid = getgrnam( 'cfbot' );
 my $d = Proc::Daemon->new(
    work_dir     => $args->{dir},
    pid_file     => $pid_file,
    exec_command => $args->{dir}."/cfbot.pl",
-   setuid       => 'cfbot',
-   setgid       => 'cfbot',
+   setuid       => $uid,
+   setgid       => $gid,
 );
 
 my %subs = ( 
