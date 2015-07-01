@@ -675,6 +675,12 @@ elsif ( $args->{version} )
 # Load config file
 $c = Config::YAML->new( config => "$args->{home}/cfbot.yml" );
 
+if ( $args->{debug} )
+{
+   $c->{irc}{channels}[0] = '#bottest';
+   $c->{irc}{nick}        = 'cfbot_test';
+}
+
 # Load topics file
 my $topics_file = "$args->{home}/topics";
 $topics = load_topics( file => $topics_file );
@@ -707,60 +713,47 @@ sub said
    my $self = shift;
    my $msg = shift;
    my $replies;
+   my $prefix = qr/$c->{irc}{nick}:?\s+/i;
 
    my $now = Time::Piece->localtime();
    return if ( $now < $hush );
 
-# New feature subs dispatch table.
-   my %dispatch = (
-         bug    => \&main::get_bug,
-         search => \&main::find_matches,
-         wow    => \&main::words_of_wisdom,
-   );
-
-   # TODO move regexes into dispatch.
-   
-   my $arg = 'undef';
-
-   if ( $msg->{body} =~ m/\A!$c->{irc}{nick}\s+hush.*\Z/i )
+   if ( $msg->{raw_body} =~ m/$prefix (hush|(be\s+)?quiet|shut\s*up|silence) /ix )
    {
       push @{ $replies }, main::hush();
    }
-   elsif ( $msg->{body} =~ m/\A!$c->{irc}{nick}\s+(\w+)\s*([\w|\s]*)\Z/i )
-   {
-      my $firstword = $1;
-      $arg = $2;
-
-      if ( grep { $_ eq $firstword } keys %dispatch )
+   my @dispatch = (
       {
-         warn "dispatch is [$firstword]" if ( $args->{debug} );
-         warn "arg      is [$arg]"       if ( $args->{debug} );
+         regex => qr/bug \s+ (\d{4,5}) /ix,
+         run   => \&main::get_bug,
+      },
+      {
+         regex => qr/$prefix search \s+ (\w+) /ix,
+         run   => \&main::find_matches,
+      },
+      {
+         regex => qr/$prefix (wow|wisdom|speak|talk|words\s+of\s+wisdom) /ix,
+         run   => \&main::words_of_wisdom,
+      },
+      {
+         regex => qr/$prefix topic \s+ (\w+) /ix,
+         run   => \&main::lookup_topics,
+      }
+   );
+   my $arg = 'undef';
 
-         # Dispatch table items are forked here.
+   for my $d ( @dispatch )
+   {
+      if ( $msg->{raw_body} =~ $d->{regex} )
+      {
+         $arg = $1;
+         warn "Dispatching with arg [$arg]" if $args->{debug};
          $self->forkit(
-            run       => $dispatch{$firstword},
+            run       => $d->{run},
             arguments => [ $arg ],
             channel   => $c->{irc}{channels}[0],
          );
       }
-      else
-      {
-         # This is for topics in the cfbot file.
-         my $keyword = "$firstword $arg";
-         $keyword =~ s/\s*\Z//g;
-         
-         warn "looking up topic [$keyword]" if ( $args->{debug} );
-         
-         $self->forkit(
-            run       => \&main::lookup_topics,
-            arguments => [ $keyword ],
-            channel   => $c->{irc}{channels}[0],
-         );
-      }
-   }
-   elsif ( $args->{debug} )
-   {
-      push @{ $replies }, "I ignored the message [$msg->{body}]";
    }
    $self->reply( $msg, $_ ) foreach ( @{ $replies } );
 }
