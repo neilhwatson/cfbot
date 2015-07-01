@@ -21,4 +21,4 @@ Like crond, CFEngine's environment when it starts a shell process is different t
 The program cf-promises is a syntax checker and more. See cf-promises --help.
 Central promise reporting is avaiable through CFEngine addons CFEngine Enterprise, Rudder, and Delta Reporting. Search topics for more info.
 Ask me for help.
-Ask me about CFEngine best practices to learn form CFEngine Champions.
+Ask me about CFEngine best practices, and learn form CFEngine Champions.

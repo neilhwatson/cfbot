@@ -212,16 +212,17 @@ sub load_words_of_wisdom
 
 sub words_of_wisdom
 {
+   my $wow = '';
+
    my $random = shift;
-   my $wow;
-   my $d4 = int( rand( 3 ));
+   $random = 'no' unless defined $random;
+
+   srand;
+   my $d4 = int( rand( 4 ));
 
    if ( $random eq 'now' or $d4 == 3 )
    {
-      warn 'going random';
-      srand;
       $wow = $words_of_wisdom->[rand @{ $words_of_wisdom }];
-      warn "got wow = $wow";
    }
    say $wow;
    return $wow
@@ -884,7 +885,7 @@ sub tick
       },
       {
          name => \&main::words_of_wisdom,
-         arg  => [],
+         arg  => [ '' ],
       },
    );
 
