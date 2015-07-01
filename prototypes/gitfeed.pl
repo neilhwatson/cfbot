@@ -28,11 +28,16 @@ sub git_feed
    my $j = JSON->new->pretty->allow_nonref;
    my $events = $j->decode( $response->{content} );
 
+   my $l = scalar @{ $events };
+   say "events length before splice = $l";
+   splice @{ $events }, 2;
+   $l = scalar @{ $events };
+   say "events length after splice [2] = $l";
+
    for my $e ( @{ $events } )
    {
       next unless entry_new ( updated => $e->{created_at}, newer_than => $args{newer_than} );
 
-      say '$e :'. Dumper( $e );
       my $msg;
       if ( $e->{type} eq 'PushEvent' )
       {

@@ -376,6 +376,7 @@ sub git_feed
 
    my $j = JSON->new->pretty->allow_nonref;
    my $events = $j->decode( $response->{content} );
+   splice @{ $events }, $c->{git_feed_limit};
 
    for my $e ( @{ $events } )
    {
