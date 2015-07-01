@@ -12,6 +12,7 @@ use Test::More;
 use Time::Piece;
 use XML::Feed;
 use JSON;
+use File::Basename;
 
 our $VERSION = 1.0;
 
@@ -244,89 +245,145 @@ sub lookup_topics
    return \@found;
 }
 
+sub get_docbase
+{
+ return 'https://docs.cfengine.com/latest'; # or 'latest'
+}
+
+{
+    my $rev;
+    my $titles;
+
+    sub get_titles
+    {
+        my $documentation_checkout = $args->{docs_repo};
+        unless (chdir $documentation_checkout)
+        {
+            warn "Couldn't change into '$documentation_checkout': $!";
+            return;
+        }
+
+        my $newrev = `git rev-parse HEAD`;
+        if (defined $rev &&
+            $newrev eq $rev &&
+            defined $titles)
+        {
+            # do nothing
+        }
+        else
+        {
+            my $new_title_text = `git grep '^title:' reference`;
+            my %titles = ($new_title_text =~ m/^(.+\.markdown):title: "?([^"]+?)"?$/mg);
+
+            $rev = $newrev;
+            $titles = \%titles;
+        }
+
+        return $titles;
+    }
+}
+
+sub reference_type
+{
+ my $location = shift;
+
+ my $docbase = get_docbase();
+ my @common = (location => $location);
+
+ return undef if $location !~ m,(reference/(.+)\.markdown)[-=:](.+),;
+
+ my $file = $1;
+ my $node = $2;
+ my $text = $3;
+
+ return undef if $node eq 'standard-library';
+ return undef if $node eq 'functions';
+ return undef if $node =~ m/(all-types|common-attributes|design-center|enterprise)/;
+
+ push @common, (file => $file, node => $node, text => $text, basenode => dirname($node));
+
+ my $titles = get_titles();
+
+ push @common, (title => exists $titles->{$file} ? $titles->{$file} : 'Title Unknown');
+
+ return { @common, type => 'class' } if $node eq 'classes';
+ return { @common, type => 'macros' } if $node eq 'macros';
+
+ if ($node =~ s,standard-library/(.+),standard-library-$1,)
+ {
+  return { @common, node => $node, type => "stdlib:$1", url => "$docbase/reference-NODE.html" };
+ }
+
+ return { @common, type => 'special-variables' } if $node eq 'special-variables';
+ return { @common, type => "special-variable:$1" } if $node =~ m,special-variables/(.+),;
+
+ return { @common, type => 'promise-types' } if $node eq 'promise-types';
+ return { @common, type => "edit_line", url => "$docbase/reference-promise-types-edit_line.html" } if $node =~ m,edit_line,;
+ return { @common, type => "edit_xml", url => "$docbase/reference-promise-types-edit_xml.html" } if $node =~ m,edit_xml,;
+ return { @common, type => "promise-type:$1" } if $node =~ m,promise-types/(.+),;
+
+ return { @common, type => "function:$1" } if $node =~ m,functions/(.+),;
+
+ return { @common, type => 'components' } if $node eq 'components';
+ return { @common, type => "file_control", url => "$docbase/reference-components-file_control_promises.html" } if $node eq 'components/file_control_promises';
+
+ return { @common, type => "component:$1" } if $node =~ m,components/(.+),;
+
+ warn "Sorry, I can't parse location: $location";
+ return undef;
+}
+
 sub find_matches
-# Find keyword matches in CFEngine documentation
 {
    my $word = shift;
+   my $max = shift || 100;
 
-   say "word [$word]" if $args->{debug};
-
+   my $docbase = get_docbase();
    my $documentation_checkout = $args->{docs_repo};
    unless (chdir $documentation_checkout)
    {
-       say "Couldn't change into '$documentation_checkout': $!";
+       warn "Couldn't change into '$documentation_checkout': $!";
        return;
    }
 
-   my $matches = `git grep '$word' | grep 'reference/functions/'`;
+   my $matches = `git grep --show-function --function-context '$word' reference`;
 
-   my @matches = map { { data => $_ } } split "\n", $matches;
+   my @matches = grep { defined } map { reference_type($_) } split("\n", $matches);
 
-   my %seen;
+   my %parsed;
 
-   my @processed_matches;
    foreach my $match (@matches)
    {
-    my ($location, $data) = split ':', $match->{data}, 2;
-    next if exists $seen{$location};
-
-    my $published = 0;
-
-    $match->{url} = "[URL unknown]";
-    $match->{summary} = "[Summary not found]";
-
-    open my $refd, '<', $location or say "Couldn't open $location: $!";
-
-    say "Opened file at $location" if $args->{debug};
-
- readdesc: while (<$refd>)
+    unless (exists $match->{url})
     {
-     chomp;
-     if (m/^title:\s+(.+)/)
-     {
-      my $title = $1;
-      $title =~ s/[]|"[]//g;
-      $match->{url} = "$c->{cf_docs_url}/reference-functions-$title.html";
-     }
-     elsif ($match->{summary} && m/^.+History:\W+\s+(.+)/)
-     {
-      $match->{summary} .= " ($1)";
-     }
-     elsif (m/^published: true/)
-     {
-      $published = 1;
-     }
-     elsif (m/^.+Description:\W+\s+(.+)/)
-     {
-         $match->{summary} = $1;
-         while (<$refd>)
-         {
-             chomp;
-             next readdesc unless m/.+/;
-             $match->{summary} .= ' ' . $_;
-         }
-     }
+     $match->{url} = ($match->{type} =~ m/:/) ? "$docbase/reference-BASENODE-TITLE.html" : "$docbase/reference-NODE.html";
     }
 
-    next unless $published;
-    $seen{$location}++;
-    push @processed_matches, "$match->{url} $match->{summary}";
+    warn "uh-oh: I can't construct the URL here " . Dumper $match unless $match->{url};
+
+    $match->{url} =~ s/TITLE/$match->{title}/g;
+    $match->{url} =~ s/BASENODE/$match->{basenode}/g;
+    $match->{url} =~ s/NODE/$match->{node}/g;
+
+    push @{$parsed{$match->{url}}}, $match;
    }
 
-   if ( scalar @processed_matches < $c->{max_records} )
+   my @processed_matches;
+
+   foreach my $url (sort keys %parsed)
    {
-      say $_ foreach ( @processed_matches);
-      return \@processed_matches;
+    push @processed_matches, { url => $url, summary => join("\n", map { $_->{text} } @{$parsed{$url}}) };
+
+    my $count = scalar keys @processed_matches;
+    if ($count >= $max)
+    {
+     push @processed_matches, { url => "...", summary => "$count matches found, but only showing $max matches" };
+     last;
+    }
    }
 
-   my $count = scalar @processed_matches;
-   splice @processed_matches, $c->{max_records} - 1;
-   push @processed_matches, "... $count matches found, but only showing $c->{max_records} matches";
-
-   say $_ foreach ( @processed_matches);
    return \@processed_matches;
 }
-
 
 sub get_bug
 {
