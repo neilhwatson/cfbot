@@ -218,9 +218,9 @@ sub words_of_wisdom
    $random = 'no' unless defined $random;
 
    srand;
-   my $d4 = int( rand( 4 ));
+   my $d = int( rand( 6 ));
 
-   if ( $random eq 'now' or $d4 == 3 )
+   if ( $random eq 'now' or $d == 5 )
    {
       $wow = $words_of_wisdom->[rand @{ $words_of_wisdom }];
    }
@@ -727,6 +727,10 @@ sub said
    my @dispatch = (
       {
          regex => qr/bug \s+ (\d{4,5}) /ix,
+         run   => \&main::get_bug,
+      },
+      {
+         regex => qr/#(\d{4,5})/ix,
          run   => \&main::get_bug,
       },
       {
