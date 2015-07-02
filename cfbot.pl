@@ -726,11 +726,13 @@ sub said
    }
    my @dispatch = (
       {
+         name  => 1,
          regex => qr/bug \s+ (\d{4,5}) /ix,
          run   => \&main::get_bug,
       },
       {
-         regex => qr/#(\d{4,5})/ix,
+         name  => 2,
+         regex => qr/\#(\d{4,5})/ix,
          run   => \&main::get_bug,
       },
       {
@@ -753,12 +755,13 @@ sub said
       if ( $msg->{raw_body} =~ $d->{regex} )
       {
          $arg = $1;
-         warn "Dispatching with arg [$arg]" if $args->{debug};
+         warn "Dispatching [$d->{name}] with arg [$arg]" if $args->{debug};
          $self->forkit(
             run       => $d->{run},
             arguments => [ $arg ],
             channel   => $c->{irc}{channels}[0],
          );
+         last;
       }
    }
    $self->reply( $msg, $_ ) foreach ( @{ $replies } );
