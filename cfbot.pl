@@ -430,7 +430,9 @@ sub atom_feed
 
    for my $e ( $feed->entries )
    {
-      if ( time_cmp( time => $e->updated, newer_than => $args{newer_than} ) )
+      if ( $e->title =~ m/\A\w+ #\d{4,5} \((Open|Closed|Merged|Rejected)\)/ 
+         and
+         time_cmp( time => $e->updated, newer_than => $args{newer_than} ) )
       {
          push @events, $e->title .", ". $e->link;
       }
@@ -506,7 +508,7 @@ sub _run_tests
          name => \&_test_cfengine_bug_atom_feed,
          arg => [ 'feed', "$c->{bug_feed}", "newer_than", 3000 ]
       },
-      t09 =>
+      t10 =>
       {
          name => \&_test_git_feed,
          arg => [
@@ -516,16 +518,15 @@ sub _run_tests
             'newer_than', '3000'
             ]
       },
-      t10 =>
+      t11 =>
       {
          name => \&_test_words_of_wisdom,
          arg => [ 'now' ],
       },
-      t11 =>
+      t12 =>
       {
          name => \&_test_hush,
       }
-
    );
 
    # Run tests in order
@@ -624,7 +625,8 @@ sub _test_cfengine_bug_atom_feed
       feed       => $args{feed},
       newer_than => $args{newer_than}
    );
-   like( $events->[0], qr/\ABug #\d+:.+\Z/, "Was a bug returned?" );
+   # e.g. Feature #7346 (Open): string_replace function
+   like( $events->[0], qr/\A(Bug|Feature) #\d{4,5}.+\Z/i, "Was a bug returned?" );
 }
 
 sub _test_git_feed
