@@ -376,14 +376,13 @@ sub git_feed
 
    my $j = JSON->new->pretty->allow_nonref;
    my $events = $j->decode( $response->{content} );
-   splice @{ $events }, $c->{git_feed_limit};
 
    for my $e ( @{ $events } )
    {
       next unless time_cmp ( time => $e->{created_at}, newer_than => $args{newer_than} );
 
       my $msg;
-      if ( $e->{type} eq 'PushEvent' )
+      if ( $e->{type} eq 'PushEvent' and $args{owner} !~ m/\Acfengine\Z/i )
       {
          my $message = substr( $e->{payload}{commits}->[0]{message}, 0, 60 );
          $msg = "Push in $args{owner}:$args{repo} by $e->{actor}{login}, $message ..., ".
