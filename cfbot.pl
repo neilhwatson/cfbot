@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use English;
 use Data::Dumper;
 use feature 'say';
 use Pod::Usage;
@@ -15,7 +16,7 @@ use JSON;
 
 our $VERSION = 1.0;
 
-my ( $c, $topics, $args, $words_of_wisdom );
+my ( $c, $topics, $args, $words_of_wisdom, $wow_words );
 my $hush = 0;
 
 =pod
@@ -102,6 +103,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
+#
+# CLI args and config
+#
+$args = _get_cli_args( @ARGV );
+
+# Load config file
+$c = Config::YAML->new( config => "$args->{home}/cfbot.yml" );
+
+if ( $args->{debug} )
+{
+   $c->{irc}{channels}[0] = '#bottest';
+   $c->{irc}{nick}        = 'cfbot_test';
+}
+
 sub _get_cli_args
 {
    use Getopt::Long qw/GetOptionsFromArray/;
@@ -152,6 +167,18 @@ sub usage
       -sections => "$section",
       -msg      => $msg
    );
+}
+
+sub _skip_words
+# Do not search for these words
+{
+   my $word = shift;
+   my @words = ( qw/ a an the and or e promise is / );
+
+   warn "_skip_words arg = [$word]" if $args->{debug};
+
+   foreach ( @words ) { return 1 if lc($word) eq $_ }
+   return 0;
 }
 
 sub hush
@@ -217,10 +244,13 @@ sub words_of_wisdom
    my $random = shift;
    $random = 'no' unless defined $random;
 
+   warn "wow random = [$random]" if $args->{debug};
+   ;
    srand;
    my $d = int( rand( 6 ));
+   $d = 0 if $args->{test};
 
-   if ( $random eq 'now' or $d == 5 )
+   if ( $random =~ m/\A$wow_words\Z/ or $d == 5 )
    {
       $wow = $words_of_wisdom->[rand @{ $words_of_wisdom }];
    }
@@ -248,8 +278,8 @@ sub find_matches
 # Find keyword matches in CFEngine documentation
 {
    my $word = shift;
-
    say "word [$word]" if $args->{debug};
+   return ([]) if _skip_words( $word );
 
    my $documentation_checkout = $args->{docs_repo};
    unless (chdir $documentation_checkout)
@@ -458,6 +488,64 @@ sub time_cmp
 #
 # Testing subs
 #
+
+# regex data for IRC message matching. We store the data here so that it can be
+# tested and also use it in the sub said dispatch table.
+
+# Words of wisdom trigger words
+$wow_words = 'wow|wisdom|speak|talk|words\s+of\s+wisdom';
+my $prefix = qr/$c->{irc}{nick}:?\s+/i;
+my %regex = (
+   bug =>
+   {
+      regex => qr/(?:bug\s+ | \#) (\d{4,5}) /xi,
+      input => [
+         'bug 2333',
+         "!$c->{irc}{nick} bug 2333",
+         "$c->{irc}{nick}: bug 2333",
+         "!$c->{irc}{nick}: bug 2333",
+         "#2333",
+      ],
+      capture => qr/\A2333\Z/,
+   },
+   search =>
+   {
+      regex => qr/(?: (?:search|function) \s+ (\w+)) |
+         (?: (\w+) \s+ function ) 
+         /xi,
+      input  => [
+         "!$c->{irc}{nick} search data_expand",
+         "$c->{irc}{nick}: search data_expand",
+         "!$c->{irc}{nick}: search data_expand",
+         "function data_expand",
+         "the data_expand function",
+      ],
+      capture => qr/\Adata_expand\Z/,
+   },
+   topic =>
+   {
+         regex => qr/$prefix topic \s+ (\w+) /ix,
+         input => [
+         "!$c->{irc}{nick} topic efl",
+         "$c->{irc}{nick}: topic efl",
+         "!$c->{irc}{nick}: topic efl",
+      ],
+      capture => qr/\Aefl\Z/i,
+   },
+   wow =>
+   {
+      regex => qr/$prefix ($wow_words) /ix, 
+      input => [
+         "$c->{irc}{nick} wow",
+         "$c->{irc}{nick} wisdom",
+         "$c->{irc}{nick} speak",
+         "$c->{irc}{nick} talk",
+         "$c->{irc}{nick} words of wisdom",
+      ],
+      capture => qr/$wow_words/i,
+   },
+);
+
 sub _run_tests
 {
    my %tests = (
@@ -500,7 +588,7 @@ sub _run_tests
       t08 =>
       {
          name => \&_test_function_search_limit,
-         arg  => [ 'the' ]
+         arg  => [ 'files' ]
       },
       t09 =>
       {
@@ -520,12 +608,17 @@ sub _run_tests
       t11 =>
       {
          name => \&_test_words_of_wisdom,
-         arg => [ 'now' ],
+         arg => [ 'wow' ],
       },
       t12 =>
       {
          name => \&_test_hush,
-      }
+      },
+      t13 =>
+      {
+         name => \&_test_body_regex,
+         arg => [ \%regex ]
+      },
    );
 
    # Run tests in order
@@ -540,7 +633,7 @@ sub _run_tests
 sub _test_doc_help
 {
    my $help = qx/ $0 -? /;
-   like( $help, qr/Usage:.*?Requirements/ms,  "[$0] -h, for usage" );
+   ok( $help =~ m/Usage:.*?Requirements/ms,  "[$0] -h, for usage" );
 }
 
 # We test what the subs that return test from queries. IRC connection not
@@ -574,8 +667,8 @@ sub _test_bug_exists
 
    subtest 'Lookup existing bug' => sub
    {
-      like( $msg->[0], qr|\A$c->{bug_tracker}/$bug|, "URL correct?" );
-      like( $msg->[0], qr|Variables not expanded inside array\Z|, "Subject correct?" );
+      ok( $msg->[0] =~ m|\A$c->{bug_tracker}/$bug|, "URL correct?" );
+      ok( $msg->[0] =~ m|Variables not expanded inside array\Z|, "Subject correct?" );
    }
 }
 
@@ -599,12 +692,12 @@ sub _test_function_search
    my $matches = find_matches( $keyword );
    subtest 'Search CFEngine documentation' => sub
    {
-      like( $matches->[0],
-         qr|\A$c->{cf_docs_url}/reference-functions-$keyword.html|,
+      ok( $matches->[0] =~
+         m|\A$c->{cf_docs_url}/reference-functions-$keyword.html|,
          "Function URL"
       );
-      like( $matches->[0],
-         qr/Transforms a data container to expand all variable references\. \(Was introduced in version 3\.7\.0 \(2015\)\)\Z/,
+      ok( $matches->[0] =~
+         m/Transforms a data container to expand all variable references\. \(Was introduced in version 3\.7\.0 \(2015\)\)\Z/,
          "Function summary"
       );
    }
@@ -625,7 +718,7 @@ sub _test_cfengine_bug_atom_feed
       newer_than => $args{newer_than}
    );
    # e.g. Feature #7346 (Open): string_replace function
-   like( $events->[0], qr/\A(Bug|Feature) #\d{4,5}.+\Z/i, "Was a bug returned?" );
+   ok( $events->[0] =~ m/\A(Bug|Feature) #\d{4,5}.+\Z/i, "Was a bug returned?" );
 }
 
 sub _test_git_feed
@@ -637,31 +730,46 @@ sub _test_git_feed
       repo => $args{repo},
       newer_than => $args{newer_than}
    );
-   like( $events->[0], qr/\APull|Push/, 'Did an event return?' );
+   ok( $events->[0] =~ m/\APull|Push/, 'Did an event return?' );
 }
 
 sub _test_words_of_wisdom
 {
    my $random = shift;
    my $wow = words_of_wisdom( $random );
-   like( $wow, qr/\w+/, 'Is a string returned?' );
+   ok( $wow =~ m/\w+/, 'Is a string returned?' );
 }
 
 sub _test_hush
 {
-   my $msg = hush();
+   my $msg = hush( 'wow' );
    subtest 'hushing' => sub
    {
-      like( $msg, qr/\S+/, "Hush returns a message" );
+      ok( $msg =~ m/\S+/, "Hush returns a message" );
       ok( $hush, '$hush is now true' );
+   }
+}
+
+sub _test_body_regex
+{
+   my $regex = shift;
+
+   for my $r ( sort keys %{ $regex } )
+   {
+      for my $i ( @{ $regex{$r}->{input} } )
+      {
+         subtest 'Testing body matching regexes' => sub
+         {
+            warn "Testing [$i] =~ $regex{$r}->{regex}" if $args->{debug};
+            ok( $i =~ $regex{$r}->{regex}, "Does regex match message body?" );
+            ok( $LAST_PAREN_MATCH =~ $regex{$r}->{capture}, "Is the correct string captured?" );
+         }
+      }
    }
 }
 #
 # Main matter
 #
-
-# Process CLI args
-$args = _get_cli_args( @ARGV );
 
 if ( $args->{help} )
 {
@@ -672,15 +780,6 @@ elsif ( $args->{version} )
 {
    say $VERSION;
    exit;
-}
-
-# Load config file
-$c = Config::YAML->new( config => "$args->{home}/cfbot.yml" );
-
-if ( $args->{debug} )
-{
-   $c->{irc}{channels}[0] = '#bottest';
-   $c->{irc}{nick}        = 'cfbot_test';
 }
 
 # Load topics file
@@ -703,6 +802,7 @@ my $bot = Cfbot->new( %{ $c->{irc} } )->run;
 
 package Cfbot;
 use base 'Bot::BasicBot'; 
+use English;
 use Data::Dumper;
 use POE::Kernel;
 
@@ -715,7 +815,6 @@ sub said
    my $self = shift;
    my $msg = shift;
    my $replies;
-   my $prefix = qr/$c->{irc}{nick}:?\s+/i;
 
    my $now = Time::Piece->localtime();
    return if ( $now < $hush );
@@ -724,27 +823,26 @@ sub said
    {
       push @{ $replies }, main::hush();
    }
+
    my @dispatch = (
       {
-         name  => 1,
-         regex => qr/bug \s+ (\d{4,5}) /ix,
+         name  => 'bug match',
+         regex => $regex{bug}{regex},
          run   => \&main::get_bug,
       },
       {
-         name  => 2,
-         regex => qr/\#(\d{4,5})/ix,
-         run   => \&main::get_bug,
-      },
-      {
-         regex => qr/$prefix search \s+ (\w+) /ix,
+         name  => 'doc search',
+         regex => $regex{search}{regex},
          run   => \&main::find_matches,
       },
       {
-         regex => qr/$prefix (wow|wisdom|speak|talk|words\s+of\s+wisdom) /ix,
+         name  => 'wow',
+         regex => $regex{wow}{regex},
          run   => \&main::words_of_wisdom,
       },
       {
-         regex => qr/$prefix topic \s+ (\w+) /ix,
+         name  => 'topic search',
+         regex => $regex{topic}{regex},
          run   => \&main::lookup_topics,
       }
    );
@@ -752,16 +850,22 @@ sub said
 
    for my $d ( @dispatch )
    {
+      warn "Checking dispatch $d->{name}" if $args->{debug};
+      warn "$msg->{raw_body} =~ $d->{regex}";
+
       if ( $msg->{raw_body} =~ $d->{regex} )
       {
-         $arg = $1;
-         warn "Dispatching [$d->{name}] with arg [$arg]" if $args->{debug};
-         $self->forkit(
-            run       => $d->{run},
-            arguments => [ $arg ],
-            channel   => $c->{irc}{channels}[0],
-         );
-         last;
+         if ( defined $LAST_PAREN_MATCH )
+         {
+            $arg = $LAST_PAREN_MATCH;
+            warn "Calling dispatch $d->{name}, arg [$arg]" if $args->{debug};
+            $self->forkit(
+               run       => $d->{run},
+               arguments => [ $arg ],
+               channel   => $c->{irc}{channels}[0],
+            );
+            last;
+         }
       }
    }
    $self->reply( $msg, $_ ) foreach ( @{ $replies } );
