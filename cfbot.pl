@@ -117,6 +117,9 @@ if ( $args->{debug} )
    $c->{irc}{nick}        = 'cfbot_test';
 }
 
+#
+# Support subs that you probably will not use.
+#
 sub _get_cli_args
 {
    use Getopt::Long qw/GetOptionsFromArray/;
@@ -181,24 +184,37 @@ sub _skip_words
    return 0;
 }
 
-sub hush
+sub load_words_of_wisdom
 {
-   my @responses = (
-      "I'll be good.",
-      "Hushing",
-      "Hrumph",
-      qw/>:[ :-( :( :-c :c :-< :< :-[ :[ :{ :-|| :@ >:( :'-( :'(/,
-      "Shutting up now.",
-      "But, but...",
-      "I'll be quiet."
-   );
+   my %args = @_;
+   my @words_of_wisdom;
 
-   srand();
-   my $response = $responses[ rand @responses ];
+   open( my $fh, '<', $args{file} ) or warn "Cannot open $args{file}, $!";
 
-   $hush = Time::Piece->localtime() + $c->{hush_time} * 60;
-   say $response;
-   return $response;
+   while (<$fh> )
+   {
+      next if m/\A\s*#/;
+      chomp;
+      push @words_of_wisdom, $_;
+   }
+   close $fh;
+
+   return \@words_of_wisdom;
+}
+
+sub time_cmp
+{
+   # Expects newer_than to be in minutes.
+   my %args = @_;
+
+   $args{time} =~ s/Z\Z//g;
+   $args{time} = Time::Piece->strptime( $args{time}, "%Y-%m-%dT%H:%M:%S" );
+
+   my $now  = Time::Piece->gmtime();
+   $args{newer_than} = $now - $args{newer_than} * 60;
+
+   return 1 if (  $args{time} > $args{newer_than} );
+   return 0;
 }
 
 sub load_topics
@@ -219,22 +235,27 @@ sub load_topics
    return \%topics;
 }
 
-sub load_words_of_wisdom
+#
+# Main subs that can be called by the bot
+#
+sub hush
 {
-   my %args = @_;
-   my @words_of_wisdom;
+   my @responses = (
+      "I'll be good.",
+      "Hushing",
+      "Hrumph",
+      qw/>:[ :-( :( :-c :c :-< :< :-[ :[ :{ :-|| :@ >:( :'-( :'(/,
+      "Shutting up now.",
+      "But, but...",
+      "I'll be quiet."
+   );
 
-   open( my $fh, '<', $args{file} ) or warn "Cannot open $args{file}, $!";
+   srand();
+   my $response = $responses[ rand @responses ];
 
-   while (<$fh> )
-   {
-      next if m/\A\s*#/;
-      chomp;
-      push @words_of_wisdom, $_;
-   }
-   close $fh;
-
-   return \@words_of_wisdom;
+   $hush = Time::Piece->localtime() + $c->{hush_time} * 60;
+   say $response;
+   return $response;
 }
 
 sub words_of_wisdom
@@ -357,7 +378,6 @@ sub find_matches
    return \@processed_matches;
 }
 
-
 sub get_bug
 {
    my $bug_number = shift;
@@ -470,27 +490,12 @@ sub atom_feed
    return \@events;
 }
 
-sub time_cmp
-{
-   # Expects newer_than to be in minutes.
-   my %args = @_;
-
-   $args{time} =~ s/Z\Z//g;
-   $args{time} = Time::Piece->strptime( $args{time}, "%Y-%m-%dT%H:%M:%S" );
-
-   my $now  = Time::Piece->gmtime();
-   $args{newer_than} = $now - $args{newer_than} * 60;
-
-   return 1 if (  $args{time} > $args{newer_than} );
-   return 0;
-}
-
 #
 # Testing subs
 #
 
 # regex data for IRC message matching. We store the data here so that it can be
-# tested and also use it in the sub said dispatch table.
+# tested and also use it in the bot's sub said dispatch table.
 
 # Words of wisdom trigger words
 $wow_words = 'wow|wisdom|speak|talk|words\s+of\s+wisdom';
@@ -548,8 +553,9 @@ my %regex = (
 
 sub _run_tests
 {
+   # Test suite dispatch table.
+   # Name your tests 't\d\d' to ensure order
    my %tests = (
-      # Name your tests 't\d\d' to ensure order
       t01 =>
       {
          name => \&_test_doc_help,
@@ -742,7 +748,7 @@ sub _test_words_of_wisdom
 
 sub _test_hush
 {
-   my $msg = hush( 'wow' );
+   my $msg = hush();
    subtest 'hushing' => sub
    {
       ok( $msg =~ m/\S+/, "Hush returns a message" );
@@ -767,6 +773,7 @@ sub _test_body_regex
       }
    }
 }
+
 #
 # Main matter
 #
