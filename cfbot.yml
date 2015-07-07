@@ -15,7 +15,7 @@ irc:
 
 bug_tracker: "https://dev.cfengine.com/issues"
 bug_feed: "https://dev.cfengine.com/projects/core/activity.atom"
-max_records: 20
+max_records: 6 
 cf_docs_url: "https://docs.cfengine.com/latest"
 git_feed: "https://api.github.com/repos"
 # Limit feed to a set number of events
