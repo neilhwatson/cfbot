@@ -67,6 +67,18 @@ sub _get_cli_args
       usage( 'USAGE' );
       exit 1;
    };
+
+# Protect input.
+   unless ( $arg{dir} =~ m|\A[a-z0-9_./-]+\Z|i )
+   {
+      usage( "Tainted dir argument" );
+      exit 1;
+   }
+   unless ( -O "$arg{dir}/." )
+   {
+      usage( "[$arg{dir}/.] must be owned by running user" );
+      exit 2;
+   }
    return \%arg;
 }
 

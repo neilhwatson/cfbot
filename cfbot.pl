@@ -150,9 +150,45 @@ sub _get_cli_args
       usage( 'USAGE' );
       exit 1;
    };
+
+# Protect input.
+   for my $a ( qw/ home docs_repo / )
+   {
+      unless ( $arg{$a} =~ m|\A[a-z0-9_./-]+\Z|i )
+      {
+         usage( "Tainted $a argument. Expecting safely named directories." );
+         exit 2;
+      }
+   }
+
+   for my $file ( "$arg{home}/.", "$arg{docs_repo}/.", "$arg{home}/cfbot.yml" )
+   {
+     unless ( -O $file )
+     {
+        usage( "[$file] must be owned by running user" );
+        exit 3;
+     }
+     unless ( _test_for_writable( $file ) )
+     {
+        usage( "File [$file] must not be group or world writable" );
+        exit 4;
+     }
+   }
    return \%arg;
 }
 
+sub _test_for_writable
+{
+   my $file = shift;
+   my @f    = stat( $file ) or die "Cannot open file [$file]";
+   my $mode = $f[2] & 0777;
+
+   if ( $mode & 022 )
+   {
+      return undef;
+   }
+   return 1;
+}
 sub usage
 {
    my $msg = shift;
@@ -305,11 +341,11 @@ sub find_matches
    my $documentation_checkout = $args->{docs_repo};
    unless (chdir $documentation_checkout)
    {
-       say "Couldn't change into '$documentation_checkout': $!";
+       warn "Couldn't change into '$documentation_checkout': $!";
        return;
    }
 
-   my $matches = `git grep '$word' | grep 'reference/functions/'`;
+   my $matches = `/usr/bin/git grep '$word' | /bin/grep 'reference/functions/'`;
 
    my @matches = map { { data => $_ } } split "\n", $matches;
 
@@ -516,7 +552,7 @@ my %regex = (
    search =>
    {
       regex => qr/(?: (?:search|function) \s+ (\w+)) |
-         (?: (\w+) \s+ function ) 
+         (?: (\w+) \s+ function\b ) 
          /xi,
       input  => [
          "!$c->{irc}{nick} search data_expand",
@@ -638,7 +674,7 @@ sub _run_tests
 
 sub _test_doc_help
 {
-   my $help = qx/ $0 -? /;
+   my $help = qx| $0 -? |;
    ok( $help =~ m/Usage:.*?Requirements/ms,  "[$0] -h, for usage" );
 }
 
