@@ -74,11 +74,6 @@ sub _get_cli_args
       usage( "Tainted dir argument" );
       exit 1;
    }
-   unless ( -O "$arg{dir}/." )
-   {
-      usage( "[$arg{dir}/.] must be owned by running user" );
-      exit 2;
-   }
    return \%arg;
 }
 
