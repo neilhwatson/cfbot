@@ -19,7 +19,7 @@ This script starts cfbot.pl as a daemon for normal use.
 
 Neil H. Watson, http://watson-wilson.ca, C<< <neil@watson-wilson.ca> >>
 
-=head1 COPYRIGHT
+=head1 LICENSE AND COPYRIGHT
 
 Copyright (C) 2015 Neil H. Watson
 
@@ -40,6 +40,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 sub _get_cli_args
 {
+   my @args = @_;
+
    use Getopt::Long qw/GetOptionsFromArray/;
    use Cwd;
 
@@ -48,8 +50,6 @@ sub _get_cli_args
    my %arg = (
       dir => '/home/cfbot/cfbot'
    );
-
-   my @args = @_;
 
    GetOptionsFromArray
    (
@@ -94,6 +94,7 @@ sub usage
       -sections => "$section",
       -msg      => $msg
    );
+   return;
 }
 
 my $args = _get_cli_args( @ARGV );
@@ -150,7 +151,8 @@ else
 
 sub start
 {
-   my $pid = $d->Init()
+   my $pid = $d->Init();
+   return;
 }
 
 sub stop
@@ -161,10 +163,12 @@ sub stop
    $pid .= $_ while (<$fh>);
    close $fh;
    kill 'TERM', $pid;
+   return;
 } 
 
 sub restart
 {
    stop();
    start();
+   return;
 }

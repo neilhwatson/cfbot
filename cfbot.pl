@@ -115,6 +115,8 @@ if ( $args->{debug} )
 {
    $c->{irc}{channels}[0] = '#bottest';
    $c->{irc}{nick}        = 'cfbot_test';
+   $c->{wake_interval}    = 5;
+   $c->{newer_than}       = 1440;
 }
 
 #
@@ -122,6 +124,8 @@ if ( $args->{debug} )
 #
 sub _get_cli_args
 {
+   my @args = @_;
+
    use Getopt::Long qw/GetOptionsFromArray/;
    use Cwd;
 
@@ -131,8 +135,6 @@ sub _get_cli_args
       home => $cwd,
       docs_repo => $cwd."/documentation",
    );
-
-   my @args = @_;
 
    GetOptionsFromArray
    (
@@ -181,11 +183,11 @@ sub _test_for_writable
 {
    my $file = shift;
    my @f    = stat( $file ) or die "Cannot open file [$file]";
-   my $mode = $f[2] & 0777;
+   my $mode = $f[2] & oct(777);
 
-   if ( $mode & 022 )
+   if ( $mode & oct(22) )
    {
-      return undef;
+      return;
    }
    return 1;
 }
@@ -206,6 +208,7 @@ sub usage
       -sections => "$section",
       -msg      => $msg
    );
+   return;
 }
 
 sub _skip_words
@@ -362,11 +365,12 @@ sub find_matches
     $match->{url} = "[URL unknown]";
     $match->{summary} = "[Summary not found]";
 
-    open my $refd, '<', $location or say "Couldn't open $location: $!";
+    warn "Opening file at $location" if $args->{debug};
+    open my $refd, '<', $location or warn "Couldn't open $location: $!";
+    my @lines = <$refd>;
+    close $refd or warn "Couldn't close $location: $!";;
 
-    say "Opened file at $location" if $args->{debug};
-
- readdesc: while (<$refd>)
+    readdesc: for (@lines)
     {
      chomp;
      if (m/^title:\s+(.+)/)
@@ -386,7 +390,7 @@ sub find_matches
      elsif (m/^.+Description:\W+\s+(.+)/)
      {
          $match->{summary} = $1;
-         while (<$refd>)
+         for (@lines) 
          {
              chomp;
              next readdesc unless m/.+/;
@@ -454,36 +458,42 @@ sub get_bug
 
 sub git_feed
 {
-   my %args = ( newer_than => $c->{newer_than}, @_);
+   my ( $arg ) = @_;
+   # Set defaults
+   #                If option given              Use option            Else default
+   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $c->{newer_than};
+   my $owner      = $arg->{owner};
+   my $repo       = $arg->{repo};
+   my $feed       = $arg->{feed};
    
    my @events;
    my $client = HTTP::Tiny->new();
-   my $response = $client->get( "$args{feed}/$args{owner}/$args{repo}/events" );
+   my $response = $client->get( "$feed/$owner/$repo/events" );
 
    my $j = JSON->new->pretty->allow_nonref;
    my $events = $j->decode( $response->{content} );
 
    for my $e ( @{ $events } )
    {
-      next unless time_cmp ( time => $e->{created_at}, newer_than => $args{newer_than} );
+      next unless time_cmp ( time => $e->{created_at}, newer_than => $newer_than );
 
       my $msg;
-      if ( $e->{type} eq 'PushEvent' and $args{owner} !~ m/\Acfengine\Z/i )
+      if ( $e->{type} eq 'PushEvent' and $owner !~ m/\Acfengine\Z/i )
       {
          my $message = substr( $e->{payload}{commits}->[0]{message}, 0, 60 );
-         $msg = "Push in $args{owner}:$args{repo} by $e->{actor}{login}, $message ..., ".
-            "https://github.com/$args{owner}/$args{repo}/commit/$e->{payload}{head}";
+         $msg = "Push in $owner:$repo by $e->{actor}{login}, $message..., ".
+            "https://github.com/$owner/$repo/commit/$e->{payload}{head}";
       }
       elsif ( $e->{type} eq 'PullRequestEvent' )
       {
-         $msg = "Pull request $e->{payload}{action} in $args{owner}:$args{repo} ".
+         $msg = "Pull request $e->{payload}{action} in $owner:$repo ".
             "by $e->{payload}{pull_request}{user}{login}, ".
             "$e->{payload}{pull_request}{title}, ".
             "$e->{payload}{pull_request}{url}";
       }
       elsif ( $e->{type} eq 'IssuesEvent' )
       {
-         $msg = "Issue in $args{owner}:$args{repo} $e->{payload}{action} ".
+         $msg = "Issue in $owner:$repo $e->{payload}{action} ".
             "by $e->{payload}{issue}{user}{login}, $e->{payload}{issue}{title}, ".
             "$e->{payload}{issue}{html_url}";
       }
@@ -503,21 +513,26 @@ sub git_feed
    {
       return 0;
    }
+   return;
 }
 
 sub atom_feed
 {
-   my %args = ( newer_than => $c->{newer_than}, @_ );
+   my ( $arg ) = @_;
+   # Set defaults
+   #                If option given              Use option            Else default
+   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $c->{newer_than};
+   my $feed       = $arg->{feed};
    my @events;
 
-   my $feed = XML::Feed->parse( URI->new( $args{feed} )) or
-      die "Feed error with [$args{feed}] ".XML::Feed->errstr;
+   $feed = XML::Feed->parse( URI->new( $feed )) or
+      die "Feed error with [$feed] ".XML::Feed->errstr;
 
    for my $e ( $feed->entries )
    {
       if ( $e->title =~ m/\A\w+ #\d{4,5} \((Open|Closed|Merged|Rejected)\)/ 
          and
-         time_cmp( time => $e->updated, newer_than => $args{newer_than} ) )
+         time_cmp( time => $e->updated, newer_than => $newer_than ) )
       {
          push @events, $e->title .", ". $e->link;
       }
@@ -635,17 +650,15 @@ sub _run_tests
       t09 =>
       {
          name => \&_test_cfengine_bug_atom_feed,
-         arg => [ 'feed', "$c->{bug_feed}", "newer_than", 3000 ]
+         arg => [{ 'feed' => "$c->{bug_feed}" => "newer_than", 6000 }]
       },
       t10 =>
       {
          name => \&_test_git_feed,
-         arg => [
-            'feed', $c->{git_feed},
-            'owner', 'cfengine',
-            'repo', 'core',
-            'newer_than', '3000'
-            ]
+         arg => [{
+            'feed' => $c->{git_feed}, 'owner' => 'cfengine',
+            'repo' => 'core', 'newer_than' => '3000'
+         }]
       },
       t11 =>
       {
@@ -670,12 +683,14 @@ sub _run_tests
    }
    my $number_of_tests = keys %tests;
    done_testing ( $number_of_tests );
+   return;
 }
 
 sub _test_doc_help
 {
    my $help = qx| $0 -? |;
    ok( $help =~ m/Usage:.*?Requirements/ms,  "[$0] -h, for usage" );
+   return;
 }
 
 # We test what the subs that return test from queries. IRC connection not
@@ -689,6 +704,7 @@ sub _test_topic_lookup
       "Test topic: This topic is for testing the cfbot. Do not remove.",
       "Testing a topic lookup"
    );
+   return;
 }
 
 sub _test_topic_not_found
@@ -700,6 +716,7 @@ sub _test_topic_not_found
       "Topic [$keyword] not found",
       "Testing an uknown topic lookup"
    );
+   return;
 }
 
 sub _test_bug_exists
@@ -711,7 +728,8 @@ sub _test_bug_exists
    {
       ok( $msg->[0] =~ m|\A$c->{bug_tracker}/$bug|, "URL correct?" );
       ok( $msg->[0] =~ m|Variables not expanded inside array\Z|, "Subject correct?" );
-   }
+   };
+   return;
 }
 
 sub _test_bug_not_found
@@ -719,6 +737,7 @@ sub _test_bug_not_found
    my $bug = shift;
    my $msg = get_bug( $bug );
    is( $msg->[0], "Bug [$bug] not found", "Bug not found" );
+   return;
 }
 
 sub _test_bug_number_invalid
@@ -726,6 +745,7 @@ sub _test_bug_number_invalid
    my $bug = shift;
    my $msg = get_bug( $bug );
    is( $msg->[0], "[$bug] is not a valid bug number", "Bug number invalid" );
+   return;
 }
 
 sub _test_function_search
@@ -739,10 +759,11 @@ sub _test_function_search
          "Function URL"
       );
       ok( $matches->[0] =~
-         m/Transforms a data container to expand all variable references\. \(Was introduced in version 3\.7\.0 \(2015\)\)\Z/,
+         m/Transforms a data container to expand all variable references/,
          "Function summary"
       );
-   }
+   };
+   return;
 }
 
 sub _test_function_search_limit
@@ -750,29 +771,27 @@ sub _test_function_search_limit
    my $keyword = shift;
    my $matches = find_matches( $keyword );
    ok( scalar @{ $matches } <= $c->{max_records}, "Limit number of returned records" );
+   return;
 }
  
 sub _test_cfengine_bug_atom_feed
 {
-   my %args = @_;
-   my $events = atom_feed(
-      feed       => $args{feed},
-      newer_than => $args{newer_than}
-   );
+   my ( $arg ) = @_;
+   my $events = atom_feed( $arg);
    # e.g. Feature #7346 (Open): string_replace function
-   ok( $events->[0] =~ m/\A(Bug|Feature) #\d{4,5}.+\Z/i, "Was a bug returned?" );
+   warn $events->[0].
+      ' =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i' if $args->{debug};
+   ok( $events->[0] =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i,
+      "Was a bug returned?" );
+   return;
 }
 
 sub _test_git_feed
 {
-   my %args = @_;
-   my $events = git_feed(
-      feed => $args{feed},
-      owner => $args{owner},
-      repo => $args{repo},
-      newer_than => $args{newer_than}
-   );
+   my ( $arg ) = @_;
+   my $events = git_feed( $arg );
    ok( $events->[0] =~ m/\APull|Push/, 'Did an event return?' );
+   return;
 }
 
 sub _test_words_of_wisdom
@@ -780,6 +799,7 @@ sub _test_words_of_wisdom
    my $random = shift;
    my $wow = words_of_wisdom( $random );
    ok( $wow =~ m/\w+/, 'Is a string returned?' );
+   return;
 }
 
 sub _test_hush
@@ -789,7 +809,8 @@ sub _test_hush
    {
       ok( $msg =~ m/\S+/, "Hush returns a message" );
       ok( $hush, '$hush is now true' );
-   }
+   };
+   return;
 }
 
 sub _test_body_regex
@@ -808,6 +829,7 @@ sub _test_body_regex
          }
       }
    }
+   return;
 }
 
 #
@@ -902,30 +924,22 @@ sub said
          {
             $arg = $LAST_PAREN_MATCH;
             warn "Calling dispatch $d->{name}, arg [$arg]" if $args->{debug};
-            $self->forkit(
+            $self->forkit({
                run       => $d->{run},
                arguments => [ $arg ],
                channel   => $c->{irc}{channels}[0],
-            );
+            });
             last;
          }
       }
    }
    $self->reply( $msg, $_ ) foreach ( @{ $replies } );
+   return;
 }
 
 sub forkit {
 # Overriding this one because the original has a bug.
-   my $self = shift;
-   my $args;
-
-   if (ref($_[0])) {
-     $args = shift;
-   }
-   else {
-     my %args = @_;
-     $args = \%args;
-   }
+   my ( $self, $args ) = @_;
 
    return if !$args->{run};
 
@@ -982,55 +996,55 @@ sub tick
    my @events = (
       {
          name => \&main::atom_feed,
-         arg  => [ 'feed', "$c->{bug_feed}" ]
+         arg  => [{ 'feed' => "$c->{bug_feed}" }]
       },
       {
          name => \&main::git_feed,
-         arg  => [
-            'feed', $c->{git_feed},
-            'owner', 'cfengine',
-            'repo', 'core',
-         ]
+         arg  => [{
+            'feed'  => $c->{git_feed},
+            'owner' => 'cfengine',
+            'repo'  => 'core',
+         }]
       },
       {
          name => \&main::git_feed,
-         arg  => [
-            'feed', $c->{git_feed},
-            'owner', 'cfengine',
-            'repo', 'masterfiles',
-         ]
+         arg  => [{
+            'feed'  => $c->{git_feed},
+            'owner' => 'cfengine',
+            'repo'  => 'masterfiles',
+         }]
       },
       {
          name => \&main::git_feed,
-         arg  => [
-            'feed', $c->{git_feed},
-            'owner', 'evolvethinking',
-            'repo', 'evolve_cfengine_freelib',
-         ]
+         arg  => [{
+            'feed'  => $c->{git_feed},
+            'owner' => 'evolvethinking',
+            'repo'  => 'evolve_cfengine_freelib',
+         }]
       },
       {
          name => \&main::git_feed,
-         arg  => [
-            'feed', $c->{git_feed},
-            'owner', 'evolvethinking',
-            'repo', 'delta_reporting',
-         ]
+         arg  => [{
+            'feed'  => $c->{git_feed},
+            'owner' => 'evolvethinking',
+            'repo'  => 'delta_reporting',
+         }]
       },
       {
          name => \&main::git_feed,
-         arg  => [
-            'feed', $c->{git_feed},
-            'owner', 'neilhwatson',
-            'repo', 'vim_cf3',
-         ]
+         arg  => [{
+            'feed'  => $c->{git_feed},
+            'owner' => 'neilhwatson',
+            'repo'  => 'vim_cf3',
+         }]
       },
       {
          name => \&main::git_feed,
-         arg  => [
-            'feed', $c->{git_feed},
-            'owner', 'neilhwatson',
-            'repo', 'cfbot',
-         ]
+         arg  => [{
+            'feed'  => $c->{git_feed},
+            'owner' => 'neilhwatson',
+            'repo'  => 'cfbot',
+         }]
       },
       {
          name => \&main::words_of_wisdom,
@@ -1038,16 +1052,13 @@ sub tick
       },
    );
 
-   my $sleep_interval = $wake_interval{seconds} / scalar @events;
-
    for my $e ( @events )
    {
-      $self->forkit(
+      $self->forkit({
          run       => $e->{name},
          arguments => $e->{arg},
          channel   => $c->{irc}{channels}[0],
-      );
-      #sleep $sleep_interval;
+      });
    }
    return $wake_interval{seconds};
 }
@@ -1055,9 +1066,10 @@ sub tick
 sub help
 {
    my $self = shift;
-   $self->forkit(
+   $self->forkit({
       run       => \&main::lookup_topics,
       arguments => [ 'help' ],
       channel   => $c->{irc}{channels}[0],
-   );
+   });
+   return;
 }
