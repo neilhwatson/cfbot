@@ -2,7 +2,7 @@
 Don't write your own CFEngine policy, use existing frameworks and save time.
 A self healing infracstructure means more uninterrrupted vacation time.
 Use vim_cf3 to edit your CFEngine policy in VIM: https://github.com/neilhwatson/vim_cf3 
-Use cfengine.el to edit your CFEngine in EMACS: https://github.com/cfengine/core/blob/master/contrib/cfengine.el 
+Use cfengine.el to edit your CFEngine in Emacs: comes with Emacs, or use https://github.com/cfengine/core/blob/master/contrib/cfengine.el 
 A mistake in your CFEngine policy is a mistake duplicated over a thousand hosts. Fully test your policy.
 A well crafted cron script can rescue a broken CFEngine agent.
 Third party CFEngine consultants: http://www.verticalsysadmin.com/cfengine/ps.htm
@@ -22,3 +22,22 @@ The program cf-promises is a syntax checker and more. See cf-promises --help.
 Central promise reporting is avaiable through CFEngine addons CFEngine Enterprise, Rudder, and Delta Reporting. Search topics for more info.
 Ask me for help.
 Ask me about CFEngine best practices, and learn form CFEngine Champions.
+CFEngine Enterprise is free up to 25 hosts.
+Idempotence and convergence are the two fundamental CFEngine promise properties.
+CFEngine is built on the foundation of promise theory.
+Promise syntax: "promiser string" -> "optional promissee" attribute1 => "value1", attribute2 => "value2", ...;
+The ifvarclass/if/unless, comment, handle, and meta promise attributes are universal and can apply to any promise.
+New in 3.7: "mycontainer" data => '{ ... JSON data ... }'; # no need for parsejson()
+New in 3.7: string_mustache() to create a string from a Mustache template.
+New in 3.7: in Mustache templates, {{@}} is the iteration key.
+New in 3.7: in Mustache templates, {{%variable}} serializes a variable as multi-line JSON and {{$variable}} in a single line.
+New in 3.7: JSON output is canonical (keys in maps are always sorted).
+New in 3.7: new packages promises with pluggable backends.
+New in 3.7: YAML support, see readyaml() and parseyaml() and readdata().
+New in 3.7: readdata("auto|YAML|JSON|CSV", "filename") will use the file extension in auto mode.
+New in 3.7: CSV read into data container with readcsv()
+New in 3.7: list_ifelse() function to make a slist through if/else logic.
+New in 3.7: if (same as ifvarclass) and unless universal promise attributes.
+New in 3.7: @if macro to exclude a portion of text from parsing based on the CFEngine version.
+New in 3.7: data_expand() function to expand variable references in a data container.
+New in 3.7: def.json to make changing the defaults really easy.
