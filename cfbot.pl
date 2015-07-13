@@ -147,7 +147,7 @@ sub _get_cli_args
       'docs_repo:s',
       'home:s',
    )
-   or eval
+   or do
    {
       usage( 'USAGE' );
       exit 1;
@@ -244,16 +244,16 @@ sub load_words_of_wisdom
 sub time_cmp
 {
    # Expects newer_than to be in minutes.
-   my %args = @_;
+   my ( $arg ) = @_;
 
-   $args{time} =~ s/Z\Z//g;
-   $args{time} = Time::Piece->strptime( $args{time}, "%Y-%m-%dT%H:%M:%S" );
+   $arg->{time} =~ s/Z\Z//g;
+   $arg->{time} = Time::Piece->strptime( $arg->{time}, "%Y-%m-%dT%H:%M:%S" );
 
    my $now  = Time::Piece->gmtime();
-   $args{newer_than} = $now - $args{newer_than} * 60;
+   $arg->{newer_than} = $now - $arg->{newer_than} * 60;
 
-   return 1 if (  $args{time} > $args{newer_than} );
-   return 0;
+   return 1 if ( $arg->{time} > $arg->{newer_than} );
+   return;
 }
 
 sub load_topics
@@ -299,10 +299,10 @@ sub hush
 
 sub words_of_wisdom
 {
-   my $wow = '';
-
    my $random = shift;
    $random = 'no' unless defined $random;
+
+   my $wow = '';
 
    warn "wow random = [$random]" if $args->{debug};
    ;
@@ -310,6 +310,7 @@ sub words_of_wisdom
    my $d = int( rand( 6 ));
    $d = 0 if $args->{test};
 
+   # TODO random wow or topic
    if ( $random =~ m/\A$wow_words\Z/ or $d == 5 )
    {
       $wow = $words_of_wisdom->[rand @{ $words_of_wisdom }];
@@ -475,7 +476,7 @@ sub git_feed
 
    for my $e ( @{ $events } )
    {
-      next unless time_cmp ( time => $e->{created_at}, newer_than => $newer_than );
+      next unless time_cmp({ time => $e->{created_at}, newer_than => $newer_than });
 
       my $msg;
       if ( $e->{type} eq 'PushEvent' and $owner !~ m/\Acfengine\Z/i )
@@ -525,14 +526,27 @@ sub atom_feed
    my $feed       = $arg->{feed};
    my @events;
 
-   $feed = XML::Feed->parse( URI->new( $feed )) or
+   warn "Getting atom feed for [$feed] ".
+      "records newer than [$newer_than]min" if $args->{debug};
+
+   my $xml = XML::Feed->parse( URI->new( $feed )) or
       die "Feed error with [$feed] ".XML::Feed->errstr;
 
-   for my $e ( $feed->entries )
+   for my $e ( $xml->entries )
    {
-      if ( $e->title =~ m/\A\w+ #\d{4,5} \((Open|Closed|Merged|Rejected)\)/ 
+      warn Dumper( $e ) if $args->{debug};
+      warn "Got bug title [$e->{title}]" if $args->{debug};
+
+      if ( $e->title =~ m/\A\w+ # Start with any word
+         \s+
+         \#\d{4,5} # bug number
+         \s+
+         \( (Open|Closed|Merged|Rejected) \) # Status of bug
+         /ix 
+
          and
-         time_cmp( time => $e->updated, newer_than => $newer_than ) )
+
+         time_cmp({ time => $e->updated, newer_than => $newer_than }) )
       {
          push @events, $e->title .", ". $e->link;
       }
@@ -777,7 +791,7 @@ sub _test_function_search_limit
 sub _test_cfengine_bug_atom_feed
 {
    my ( $arg ) = @_;
-   my $events = atom_feed( $arg);
+   my $events = atom_feed( $arg );
    # e.g. Feature #7346 (Open): string_replace function
    warn $events->[0].
       ' =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i' if $args->{debug};
