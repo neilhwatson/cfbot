@@ -541,7 +541,7 @@ sub atom_feed
          \s+
          \#\d{4,5} # bug number
          \s+
-         \( (Open|Closed|Merged|Rejected) \) # Status of bug
+         \( (Open|Closed|Merged|Rejected|Unconfirmed) \) # Status of bug
          /ix 
 
          and
