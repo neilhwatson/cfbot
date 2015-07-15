@@ -46,6 +46,11 @@ C<< -do <dir> >> points to an on disk clone of the CFEngine documentation reposi
 
 C<< -t|--test >> Run developer test suite.
 
+=item
+
+C<< -de | --debug >> Run in debug mode. This will print more informationa and
+return more events from feeds.
+
 =back
 
 =head2 REQUIREMENTS
@@ -119,9 +124,12 @@ if ( $args->{debug} )
    $c->{newer_than}       = 1440;
 }
 
-#
-# Support subs that you probably will not use.
-#
+=head2 SUPPORT SUBS
+Support subs that you probably will not use.
+
+=head3 _get_cli_args
+Process command line args.
+=cut
 sub _get_cli_args
 {
    my @args = @_;
@@ -179,10 +187,13 @@ sub _get_cli_args
    return \%arg;
 }
 
+=head3 _test_for_writable
+Test for group or world writable files.
+=cut
 sub _test_for_writable
 {
    my $file = shift;
-   my @f    = stat( $file ) or die "Cannot open file [$file]";
+   my @f    = stat( $file ) or croak "Cannot open file [$file]";
    my $mode = $f[2] & oct(777);
 
    if ( $mode & oct(22) )
@@ -191,6 +202,10 @@ sub _test_for_writable
    }
    return 1;
 }
+
+=head3 usage
+Print usage message.
+=cut
 sub usage
 {
    my $msg = shift;
@@ -211,8 +226,10 @@ sub usage
    return;
 }
 
+=head3 _skip_words
+Test for words that should not be searched for.
+=cut
 sub _skip_words
-# Do not search for these words
 {
    my $word = shift;
    my @words = ( qw/ a an the and or e promise is / );
@@ -223,6 +240,9 @@ sub _skip_words
    return 0;
 }
 
+=head3 load_words_of_wisdom
+Load words of wisdom file into ram.
+=cut
 sub load_words_of_wisdom
 {
    my %args = @_;
@@ -241,6 +261,9 @@ sub load_words_of_wisdom
    return \@words_of_wisdom;
 }
 
+=head3 time_tmp
+Tests for new records from feeds.
+=cut
 sub time_cmp
 {
    # Expects newer_than to be in minutes.
@@ -256,6 +279,9 @@ sub time_cmp
    return;
 }
 
+=head3 load_topics
+Load topics into ram.
+=cut
 sub load_topics
 {
    my %args = @_;
@@ -276,9 +302,12 @@ sub load_topics
    return \%topics;
 }
 
-#
-# Main subs that can be called by the bot
-#
+=head2 MAIN SUBS
+Main subs that can be called by the bot
+
+=head3 hush
+Controls the hushing of the bot
+=cut
 sub hush
 {
    my @responses = (
@@ -299,6 +328,9 @@ sub hush
    return $response;
 }
 
+=head3 words_of_wisdom
+Calls a words of wisdom entry
+=cut
 sub words_of_wisdom
 {
    my $random = shift;
@@ -321,6 +353,9 @@ sub words_of_wisdom
    return $wow
 }
 
+=head3 lookup_topics
+Search topics file for a given keyword.
+=cut
 sub lookup_topics
 {
    my $keyword = shift;
@@ -337,8 +372,10 @@ sub lookup_topics
    return \@found;
 }
 
+=head3 find_matchs
+Searched CFEngine function documentation for a  given keyword.
+=cut
 sub find_matches
-# Find keyword matches in CFEngine documentation
 {
    my $word = shift;
    say "word [$word]" if $args->{debug};
@@ -421,6 +458,9 @@ sub find_matches
    return \@processed_matches;
 }
 
+=head3 get_bug
+Looks up a CFEngine bug from a given number.
+=cut
 sub get_bug
 {
    my $bug_number = shift;
@@ -459,6 +499,9 @@ sub get_bug
    return \@return;
 }
 
+=head3 git_feed
+Returns recent events from a github repository.
+=cut
 sub git_feed
 {
    my ( $arg ) = @_;
@@ -519,6 +562,9 @@ sub git_feed
    return;
 }
 
+=head3 atom_feed
+Returns recent events from a Redmine atom feed.
+=cut
 sub atom_feed
 {
    my ( $arg ) = @_;
@@ -556,9 +602,12 @@ sub atom_feed
    return \@events;
 }
 
-#
-# Testing subs
-#
+
+=head2 TESTING
+
+New features should have tests to be run with the test suite.
+
+=cut
 
 # regex data for IRC message matching. We store the data here so that it can be
 # tested and also use it in the bot's sub said dispatch table.
@@ -616,6 +665,11 @@ my %regex = (
    },
 );
 
+=head2 TESTING SUBS
+
+=head3 _run_tests
+Calls testing subs via a dispatch table.
+=cut
 sub _run_tests
 {
    # Test suite dispatch table.
@@ -700,6 +754,9 @@ sub _run_tests
    return;
 }
 
+=head3 _test_doc_help
+Test help and usage.
+=cut
 sub _test_doc_help
 {
    my $help = qx| $0 -? |;
@@ -707,8 +764,9 @@ sub _test_doc_help
    return;
 }
 
-# We test what the subs that return test from queries. IRC connection not
-# required.
+=head3 _test_topic_lookup
+Test sub that looks up topics
+=cut
 sub _test_topic_lookup
 {
    my $keyword = shift;
@@ -721,6 +779,9 @@ sub _test_topic_lookup
    return;
 }
 
+=head3 _test_topic_not_found
+Test topic lookup sub when topic is not found.
+=cut
 sub _test_topic_not_found
 {
    my $keyword = shift;
@@ -733,6 +794,9 @@ sub _test_topic_not_found
    return;
 }
 
+=head3 _test_bug_exists
+Test that get_bug sub returns a bug entry.
+=cut
 sub _test_bug_exists
 {
    my $bug = shift;
@@ -746,6 +810,9 @@ sub _test_bug_exists
    return;
 }
 
+=head3 _test_bug_not_found
+Test that get_bug sub handle an unkown bug properly.
+=cut
 sub _test_bug_not_found
 {
    my $bug = shift;
@@ -754,6 +821,9 @@ sub _test_bug_not_found
    return;
 }
 
+=head3 _test_bug_number_invalid
+Test that get_bug sub handles an invalid bug number.
+=cut
 sub _test_bug_number_invalid
 {
    my $bug = shift;
@@ -762,6 +832,9 @@ sub _test_bug_number_invalid
    return;
 }
 
+=head3 _test_function_search
+Test that fucntion search returns a url and a description.
+=cut
 sub _test_function_search
 {
    my $keyword = shift;
@@ -780,6 +853,9 @@ sub _test_function_search
    return;
 }
 
+=head3 _test_function_search_limit
+Test that fucntion search returns a limited number of entries.
+=cut
 sub _test_function_search_limit
 {
    my $keyword = shift;
@@ -788,6 +864,9 @@ sub _test_function_search_limit
    return;
 }
  
+=head3 _test_cfengine_bug_atom_feed
+Test that bug feed returns at least one correct entry.
+=cut
 sub _test_cfengine_bug_atom_feed
 {
    my ( $arg ) = @_;
@@ -800,6 +879,9 @@ sub _test_cfengine_bug_atom_feed
    return;
 }
 
+=head3 _test_git_feed
+Test that git feed returns at least one correct entry.
+=cut
 sub _test_git_feed
 {
    my ( $arg ) = @_;
@@ -808,6 +890,9 @@ sub _test_git_feed
    return;
 }
 
+=head3 _test_words_of_wisdom
+Test that words of wisdom returns a string.
+=cut
 sub _test_words_of_wisdom
 {
    my $random = shift;
@@ -816,6 +901,9 @@ sub _test_words_of_wisdom
    return;
 }
 
+=head3 _test_hush
+Test hushing function
+=cut
 sub _test_hush
 {
    my $msg = hush();
@@ -827,6 +915,9 @@ sub _test_hush
    return;
 }
 
+=head3 _test_body_regex
+Test regexes used to trigger events from messages in the channel.
+=cut
 sub _test_body_regex
 {
    my $regex = shift;
@@ -885,10 +976,17 @@ use English;
 use Data::Dumper;
 use POE::Kernel;
 
-my @kids;
-#
-# Subs that override Bot::BasicBot's own subs.
-#
+=head1 PACKAGE Cfbot
+
+=head2 SYNOPSIS
+
+Subs in this package override Bot::BasicBot's own subs.
+
+=head2 SUBS
+
+=head3 said
+Reads channel messages and takes action if messages match regexes.
+=cut
 sub said
 {
    my $self = shift;
@@ -951,6 +1049,10 @@ sub said
    return;
 }
 
+=head3 forkit
+Forks any function provided to this sub via arguments. All output from the
+called sub bound for STDOUT will go to the channel.
+=cut
 sub forkit {
 # Overriding this one because the original has a bug.
    my ( $self, $args ) = @_;
@@ -998,6 +1100,10 @@ sub forkit {
    return;
 }
 
+=head3 tick
+This sub is called automtically by the bot at the interval defined by the
+return statement at the end.
+=cut
 sub tick
 {
    my $self=shift;
@@ -1077,6 +1183,9 @@ sub tick
    return $wake_interval{seconds};
 }
 
+=head3 help
+When someone says help to the bot this sub is run
+=cut
 sub help
 {
    my $self = shift;

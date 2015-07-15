@@ -3,7 +3,7 @@ An IRC bot for CFEngine channels that allows users to query if for answers.
 
 ## Requirements
 
-Multiple Perl modules all shown in cfbot.pl.
+Multiple Perl modules all shown in cfbot.pl and daemon.pl.
 
 ## To use
 
