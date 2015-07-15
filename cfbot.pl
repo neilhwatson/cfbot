@@ -271,6 +271,8 @@ sub load_topics
    }
    close $fh;
 
+   say 'Topics: '. Dumper( \%topics ) if $args->{debug};
+
    return \%topics;
 }
 
@@ -534,7 +536,6 @@ sub atom_feed
 
    for my $e ( $xml->entries )
    {
-      warn Dumper( $e ) if $args->{debug};
       warn "Got bug title [$e->{title}]" if $args->{debug};
 
       if ( $e->title =~ m/\A\w+ # Start with any word
@@ -580,15 +581,13 @@ my %regex = (
    },
    search =>
    {
-      regex => qr/(?: (?:search|function) \s+ (\w+)) |
-         (?: (\w+) \s+ function\b ) 
-         /xi,
+      regex => qr/(?: (?:search|function) \s+ (\w+)) /xi,
       input  => [
          "!$c->{irc}{nick} search data_expand",
          "$c->{irc}{nick}: search data_expand",
-         "!$c->{irc}{nick}: search data_expand",
+         "!$c->{irc}{nick}: function data_expand",
          "function data_expand",
-         "the data_expand function",
+         "the function data_expand",
       ],
       capture => qr/\Adata_expand\Z/,
    },
@@ -599,8 +598,9 @@ my %regex = (
          "!$c->{irc}{nick} topic efl",
          "$c->{irc}{nick}: topic efl",
          "!$c->{irc}{nick}: topic efl",
+         "!$c->{irc}{nick}: topic delta",
       ],
-      capture => qr/\Aefl\Z/i,
+      capture => qr/\A (efl|delta) \Z/ix,
    },
    wow =>
    {
@@ -629,7 +629,7 @@ sub _run_tests
       t02 =>
       {
          name => \&_test_topic_lookup,
-         arg  => [ 'Test topic' ],
+         arg  => [ 'Test' ],
       },
       t03 =>
       {
