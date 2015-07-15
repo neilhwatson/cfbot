@@ -13,6 +13,7 @@ use Test::More;
 use Time::Piece;
 use XML::Feed;
 use JSON;
+use Carp;
 
 our $VERSION = 1.0;
 
