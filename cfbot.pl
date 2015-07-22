@@ -17,7 +17,7 @@ use Carp;
 
 our $VERSION = 1.0;
 
-my ( $c, $topics, $args, $words_of_wisdom, $wow_words );
+my ( $c, $topics, $args, $words_of_wisdom, $wisdom_trigger_words );
 my $hush = 0;
 
 =pod
@@ -332,26 +332,25 @@ sub hush
 =head3 words_of_wisdom
 Calls a words of wisdom entry
 =cut
-sub words_of_wisdom
+sub say_words_of_wisdom
 {
-   my $random = shift;
-   $random = 'no' unless defined $random;
+   my $arg_word = shift;
+   $arg_word    = 'no' unless defined $arg_word;
+   my $message  = q{};
 
-   my $wow = '';
+   warn "wow arg_word = [$arg_word]" if $args->{debug};
 
-   warn "wow random = [$random]" if $args->{debug};
-   ;
    srand;
-   my $d = int( rand( 6 ));
-   $d = 0 if $args->{test};
+   my $dice_size = 10;
+   my $dice_roll = int( rand( $dice_size ));
+   $dice_roll    = 0 if $args->{test};
 
-   # TODO random wow or topic
-   if ( $random =~ m/\A$wow_words\Z/ or $d == 5 )
-   {
-      $wow = $words_of_wisdom->[rand @{ $words_of_wisdom }];
+   # TODO arg_word wow or topic
+   if ( $arg_word =~ m/\A$wisdom_trigger_words\Z/ or $dice_roll == 5 ) {
+      $message = $words_of_wisdom->[rand @{ $words_of_wisdom }];
    }
-   say $wow;
-   return $wow
+   say $message;
+   return $message
 }
 
 =head3 lookup_topics
@@ -614,7 +613,7 @@ New features should have tests to be run with the test suite.
 # tested and also use it in the bot's sub said dispatch table.
 
 # Words of wisdom trigger words
-$wow_words = 'wow|wisdom|speak|talk|words\s+of\s+wisdom';
+$wisdom_trigger_words = 'wow|wisdom|speak|talk|words\s+of\s+wisdom';
 my $prefix = qr/$c->{irc}{nick}:?\s+/i;
 my %regex = (
    bug =>
@@ -654,7 +653,7 @@ my %regex = (
    },
    wow =>
    {
-      regex => qr/$prefix ($wow_words) /ix, 
+      regex => qr/$prefix ($wisdom_trigger_words) /ix, 
       input => [
          "$c->{irc}{nick} wow",
          "$c->{irc}{nick} wisdom",
@@ -662,7 +661,7 @@ my %regex = (
          "$c->{irc}{nick} talk",
          "$c->{irc}{nick} words of wisdom",
       ],
-      capture => qr/$wow_words/i,
+      capture => qr/$wisdom_trigger_words/i,
    },
 );
 
@@ -897,7 +896,7 @@ Test that words of wisdom returns a string.
 sub _test_words_of_wisdom
 {
    my $random = shift;
-   my $wow = words_of_wisdom( $random );
+   my $wow = say_words_of_wisdom( $random );
    ok( $wow =~ m/\w+/, 'Is a string returned?' );
    return;
 }
@@ -1016,7 +1015,7 @@ sub said
       {
          name  => 'wow',
          regex => $regex{wow}{regex},
-         run   => \&main::words_of_wisdom,
+         run   => \&main::say_words_of_wisdom,
       },
       {
          name  => 'topic search',
@@ -1168,7 +1167,7 @@ sub tick
          }]
       },
       {
-         name => \&main::words_of_wisdom,
+         name => \&main::say_words_of_wisdom,
          arg  => [ '' ],
       },
    );
