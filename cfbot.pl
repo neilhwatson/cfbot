@@ -2,199 +2,177 @@
 
 use strict;
 use warnings;
-use English;
-use Data::Dumper;
-use feature 'say';
-use Pod::Usage;
-use Config::YAML;
-use Web::Query;
-use HTTP::Tiny;
-use Test::More;
-use Time::Piece;
-use XML::Feed;
-use JSON;
 use Carp;
+use Config::YAML;
+use Cwd;
+use Data::Dumper;
+use English;
+use Getopt::Long;
+use HTTP::Tiny;
+use JSON;
+use Pod::Usage;
+use Test::More tests => 31;
+use Time::Piece;
+use Web::Query;
+use XML::Feed;
+use feature 'say';
 
 our $VERSION = 1.0;
 
-my ( $c, $topics, $args, $words_of_wisdom, $wisdom_trigger_words );
+my ( $topics, $words_of_wisdom, $wisdom_trigger_words );
 my $hush = 0;
-
-=pod
-
-=head1 SYNOPSIS
-
-C<< cfbot [-h|--home] <basedire> [-t|--test] [-do|--docs_repo] <dir> [-de|--debug] [-he|-?|--help] >>
-Is an IRC chat bot for CFEngine channels on freenode. Run this
-script by hand for testing a hacking. Use the daemon.pl script to
-run cfbot.pl is regular service.
-
-=head2 OPTIONS
-
-=over 3
-
-=item
-
-C<< -h <basedir> >> Directory to find configuration file, CFEngine
-documentation file, and topic file. Defaults to the current directory.
-
-=item
-
-C<< -do <dir> >> points to an on disk clone of the CFEngine documentation repository
-(L<https://github.com/cfengine/documentation>. Defaults to the current directory.
-
-=item
-
-C<< -t|--test >> Run developer test suite.
-
-=item
-
-C<< -de | --debug >> Run in debug mode. This will print more informationa and
-return more events from feeds.
-
-=back
-
-=head2 REQUIREMENTS
-
-Also needs POE::Component::SSLify, and POE::Component::Client::DNS.
-Known as libbot-basicbot-perl, libpoe-component-sslify-perl, and
-libpoe-component-client-dns-perl on Debian.
-
-=head2 HACKING
-
-=over 3
-
-=item
-
-To add new topics, edit the F<cfbot> file using the format of existing entries.
-
-=item
-
-The configuration file is F<cfbot.yml>.
-
-=item
-
-Use the test suite whenever possible. Add new tests with new features.
-
-=item
-
-Generally, bot responses come out of a dispatch table. All such response subs
-require the same input and output. A single string for input while output takes
-two forms. The first is to send the message or messages to STDOUT in the sub.
-The second is to return an array reference containing the output. The former
-will go the the IRC channel, the latter is used by the test suite.
-
-=back
-
-=head1 AUTHOR
-
-Neil H. Watson, http://watson-wilson.ca, C<< <neil@watson-wilson.ca> >>
-
-=head1 COPYRIGHT
-
-Copyright (C) 2015 Neil H. Watson
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-=cut
 
 #
 # CLI args and config
 #
-$args = _get_cli_args( @ARGV );
+my $cli_arg_ref = _get_cli_args();
 
 # Load config file
-$c = Config::YAML->new( config => "$args->{home}/cfbot.yml" );
+my $config_ref = Config::YAML->new( config => "$cli_arg_ref->{config}" );
 
-if ( $args->{debug} )
+if ( $cli_arg_ref->{debug} )
 {
-   $c->{irc}{channels}[0] = '#bottest';
-   $c->{irc}{nick}        = 'cfbot_test';
-   $c->{wake_interval}    = 5;
-   $c->{newer_than}       = 1440;
+   $config_ref->{irc}{channels}[0] = '#bottest';
+   $config_ref->{irc}{nick}        = 'cfbot_test';
+   $config_ref->{wake_interval}    = 5;
+   $config_ref->{newer_than}       = 1440;
 }
 
-=head2 SUPPORT SUBS
-Support subs that you probably will not use.
+#
+# Support subs that you probably will not use.
+#
 
-=head3 _get_cli_args
-Process command line args.
-=cut
+# Process command line args.
 sub _get_cli_args
 {
-   my @args = @_;
-
-   use Getopt::Long qw/GetOptionsFromArray/;
-   use Cwd;
-
    my $cwd = getcwd();
-   # Set default CLI args here. Getopts will override.
-   my %arg = (
-      home => $cwd,
-      docs_repo => $cwd."/documentation",
-   );
 
-   GetOptionsFromArray
+   # Set default CLI args here. Getopts will override.
+   my $cli_arg_ref = {
+      home      => $cwd,
+      docs_repo => $cwd."/documentation",
+      config    => $cwd."/cfbot.yml",
+   };
+
+   # Define ways to valid your arguments using anonymous subs or regexes.
+   my $valid_arg_ref = {
+      home      => {
+         constraint => \&_valid_filename_in_cli_args,
+         error      => "home arg is invalid",
+      },
+      docs_repo => {
+         constraint => \&_valid_filename_in_cli_args,
+         error      => "docs_repo arg is invalid",
+      },
+      config    => {
+         constraint => \&_valid_filename_in_cli_args,
+         error      => "config arg is invalid",
+      },
+   };
+
+   # Read, process, and validate cli args
+   GetOptions
    (
-      \@args,
-      \%arg,
-      'help|?',
-      'version',
-      'test',
+      $cli_arg_ref,
       'debug',
       'docs_repo:s',
       'home:s',
-   )
-   or do
-   {
-      usage( 'USAGE' );
-      exit 1;
-   };
+      'config:s',
+      'test',
 
-# Protect input.
-   for my $a ( qw/ home docs_repo / )
-   {
-      unless ( $arg{$a} =~ m|\A[a-z0-9_./-]+\Z|i )
-      {
-         usage( "Tainted $a argument. Expecting safely named directories." );
-         exit 2;
+      'version'  => sub { say $VERSION; exit                            },
+      'man'      => sub { pod2usage( -verbose => 2, -exitval => 0 )     },
+
+      'dumpargs' => sub {
+         say '$cli_arg_ref = '. Dumper( $cli_arg_ref ); exit
+      },
+      'help|?'   => sub {
+         pod2usage( -sections => ['OPTIONS'],  -exitval => 0, -verbose => 99)
+      },
+      'usage'    => sub {
+         pod2usage( -sections => ['SYNOPSIS'], -exitval => 0, -verbose => 99)
+      },
+      'examples' => sub {
+         pod2usage( -sections => 'EXAMPLES',   -exitval => 0, -verbose => 99)
+      },
+   );
+
+   # Futher, more complex cli arg validation
+   _validate_cli_args({
+         cli_inputs   => $cli_arg_ref,
+         valid_inputs => $valid_arg_ref
+   });
+
+   return $cli_arg_ref;
+}
+
+# Validate select cli args
+sub _validate_cli_args {
+   my ( $arg )     = @_;
+   my $cli         = $arg->{cli_inputs};
+   my $valid_input = $arg->{valid_inputs};
+   my $errors      = q{};
+
+   # Process cli args and test against the given contraint
+   for my $arg ( keys %{ $cli }) {
+      if ( defined $valid_input->{$arg} ) {
+         my $constraint = $valid_input->{$arg}->{constraint};
+         my $error      = $valid_input->{$arg}->{error};
+         my $ref        = ref $constraint;
+
+         # Test when constraint is a code reference.
+         if ( $ref eq 'CODE' ) {
+            $errors
+               .= "\n" . $error unless ( ${constraint}->( $cli->{$arg} ) );
+         }
+
+         # Test when contraint is a regular expression.
+         elsif ( $ref eq 'Regexp' ) {
+            $errors .= "\n" . $error unless ( $cli->{$arg} =~ $constraint );
+         }
       }
    }
 
-   for my $file ( "$arg{home}/.", "$arg{docs_repo}/.", "$arg{home}/cfbot.yml" )
-   {
-     unless ( -O $file )
-     {
-        usage( "[$file] must be owned by running user" );
-        exit 3;
-     }
-     unless ( _test_for_writable( $file ) )
-     {
-        usage( "File [$file] must not be group or world writable" );
-        exit 4;
-     }
-   }
-   return \%arg;
+   # Report any invalid cli args 
+   pod2usage( -msg => $errors, -exitval => 2 ) if length $errors > 0;
+
+   return 1;
 }
 
-=head3 _test_for_writable
-Test for group or world writable files.
-=cut
-sub _test_for_writable
-{
-   my $file = shift;
-   my @f    = stat( $file ) or croak "Cannot open file [$file]";
+# Test file names give via cli args
+sub _valid_filename_in_cli_args {
+      my $file_name = shift;
+      
+      unless ( $file_name =~ m|\A[a-z0-9_./-]+\Z|i ) {
+         warn "[$file_name] not valid";
+         return;
+      }
+      unless ( _user_owns( $file_name ) ) {
+         warn "User must own [$file_name]";
+         return;
+      }
+      unless ( _file_not_gw_writable( $file_name ) ) {
+         warn "[$file_name] must not be group or world writable";
+         return;
+      }
+
+      return 1;
+   };
+
+
+# Test that running user owns a file
+sub _user_owns {
+   my $file_name = shift;
+
+   return unless -O $file_name;
+   return 1;
+}
+
+# Test for group or world writable files.
+sub _file_not_gw_writable {
+   my $file_name = shift;
+   my @f         = stat( $file_name )
+      or croak "Cannot open file [$file_name]";
    my $mode = $f[2] & oct(777);
 
    if ( $mode & oct(22) )
@@ -204,46 +182,19 @@ sub _test_for_writable
    return 1;
 }
 
-=head3 usage
-Print usage message.
-=cut
-sub usage
-{
-   my $msg = shift;
-   my $section;
-   if ( $msg =~ m/\AEXAMPLES\Z/ )
-   {
-      $section = $msg;
-   }
-   else
-   {
-      $section = "SYNOPSIS";
-   }
-   pod2usage(
-      -verbose  => 99,
-      -sections => "$section",
-      -msg      => $msg
-   );
-   return;
-}
-
-=head3 _skip_words
-Test for words that should not be searched for.
-=cut
+# Test for words that should not be searched for.
 sub _skip_words
 {
    my $word = shift;
-   my @words = ( qw/ a an the and or e promise is / );
+   my @words = ( qw/ a an the and or e promise is function functions query/ );
 
-   warn "_skip_words arg = [$word]" if $args->{debug};
+   warn "_skip_words arg = [$word]" if $cli_arg_ref->{debug};
 
-   foreach ( @words ) { return 1 if lc($word) eq $_ }
+   for my $next_word ( @words ) { return 1 if $next_word eq lc($word) }
    return 0;
 }
 
-=head3 load_words_of_wisdom
-Load words of wisdom file into ram.
-=cut
+# Load words of wisdom file into ram.
 sub load_words_of_wisdom
 {
    my %args = @_;
@@ -262,9 +213,7 @@ sub load_words_of_wisdom
    return \@words_of_wisdom;
 }
 
-=head3 time_tmp
-Tests for new records from feeds.
-=cut
+# Tests for new records from feeds.
 sub time_cmp
 {
    # Expects newer_than to be in minutes.
@@ -280,9 +229,7 @@ sub time_cmp
    return;
 }
 
-=head3 load_topics
-Load topics into ram.
-=cut
+# Load topics into ram.
 sub load_topics
 {
    my %args = @_;
@@ -298,17 +245,16 @@ sub load_topics
    }
    close $fh;
 
-   say 'Topics: '. Dumper( \%topics ) if $args->{debug};
+   say 'Topics: '. Dumper( \%topics ) if $cli_arg_ref->{debug};
 
    return \%topics;
 }
 
-=head2 MAIN SUBS
-Main subs that can be called by the bot
+#
+# Main subs that can be called by the bot
+#
 
-=head3 hush
-Controls the hushing of the bot
-=cut
+# Controls the hushing of the bot
 sub hush
 {
    my @responses = (
@@ -324,26 +270,24 @@ sub hush
    srand();
    my $response = $responses[ rand @responses ];
 
-   $hush = Time::Piece->localtime() + $c->{hush_time} * 60;
+   $hush = Time::Piece->localtime() + $config_ref->{hush_time} * 60;
    say $response;
    return $response;
 }
 
-=head3 words_of_wisdom
-Calls a words of wisdom entry
-=cut
+# Calls a words of wisdom entry
 sub say_words_of_wisdom
 {
    my $arg_word = shift;
    $arg_word    = 'no' unless defined $arg_word;
    my $message  = q{};
 
-   warn "wow arg_word = [$arg_word]" if $args->{debug};
+   warn "wow arg_word = [$arg_word]" if $cli_arg_ref->{debug};
 
    srand;
    my $dice_size = 10;
    my $dice_roll = int( rand( $dice_size ));
-   $dice_roll    = 0 if $args->{test};
+   $dice_roll    = 0 if $cli_arg_ref->{test};
 
    # TODO arg_word wow or topic
    if ( $arg_word =~ m/\A$wisdom_trigger_words\Z/ or $dice_roll == 5 ) {
@@ -353,9 +297,7 @@ sub say_words_of_wisdom
    return $message
 }
 
-=head3 lookup_topics
-Search topics file for a given keyword.
-=cut
+# Search topics file for a given keyword.
 sub lookup_topics
 {
    my $keyword = shift;
@@ -372,16 +314,14 @@ sub lookup_topics
    return \@found;
 }
 
-=head3 find_matchs
-Searched CFEngine function documentation for a  given keyword.
-=cut
+# Searched CFEngine function documentation for a  given keyword.
 sub find_matches
 {
    my $word = shift;
-   say "word [$word]" if $args->{debug};
+   say "word [$word]" if $cli_arg_ref->{debug};
    return ([]) if _skip_words( $word );
 
-   my $documentation_checkout = $args->{docs_repo};
+   my $documentation_checkout = $cli_arg_ref->{docs_repo};
    unless (chdir $documentation_checkout)
    {
        warn "Couldn't change into '$documentation_checkout': $!";
@@ -405,7 +345,7 @@ sub find_matches
     $match->{url} = "[URL unknown]";
     $match->{summary} = "[Summary not found]";
 
-    warn "Opening file at $location" if $args->{debug};
+    warn "Opening file at $location" if $cli_arg_ref->{debug};
     open my $refd, '<', $location or warn "Couldn't open $location: $!";
     my @lines = <$refd>;
     close $refd or warn "Couldn't close $location: $!";;
@@ -417,7 +357,7 @@ sub find_matches
      {
       my $title = $1;
       $title =~ s/[]|"[]//g;
-      $match->{url} = "$c->{cf_docs_url}/reference-functions-$title.html";
+      $match->{url} = "$config_ref->{cf_docs_url}/reference-functions-$title.html";
      }
      elsif ($match->{summary} && m/^.+History:\W+\s+(.+)/)
      {
@@ -444,29 +384,27 @@ sub find_matches
     push @processed_matches, "$match->{url} $match->{summary}";
    }
 
-   if ( scalar @processed_matches < $c->{max_records} )
+   if ( scalar @processed_matches < $config_ref->{max_records} )
    {
       say $_ foreach ( @processed_matches);
       return \@processed_matches;
    }
 
    my $count = scalar @processed_matches;
-   splice @processed_matches, $c->{max_records} - 1;
-   push @processed_matches, "... $count matches found, but only showing $c->{max_records} matches";
+   splice @processed_matches, $config_ref->{max_records} - 1;
+   push @processed_matches, "... $count matches found, but only showing $config_ref->{max_records} matches";
 
    say $_ foreach ( @processed_matches);
    return \@processed_matches;
 }
 
-=head3 get_bug
-Looks up a CFEngine bug from a given number.
-=cut
+# Looks up a CFEngine bug from a given number.
 sub get_bug
 {
    my $bug_number = shift;
    my @return;
    my $message = "Unexpected error in retreiving bug $bug_number";
-   my $url = "$c->{bug_tracker}/$bug_number";
+   my $url = "$config_ref->{bug_tracker}/$bug_number";
 
    unless ( $bug_number =~ m/\A\d{1,6}\Z/ )
    {
@@ -481,7 +419,7 @@ sub get_bug
       );
 
       my $client = HTTP::Tiny->new();
-      my $response = $client->get( "$c->{bug_tracker}/$bug_number" );
+      my $response = $client->get( "$config_ref->{bug_tracker}/$bug_number" );
       for my $key (keys %responses)
       {
          $message = $responses{$key} if $response->{status} == $key;
@@ -499,15 +437,13 @@ sub get_bug
    return \@return;
 }
 
-=head3 git_feed
-Returns recent events from a github repository.
-=cut
+# Returns recent events from a github repository.
 sub git_feed
 {
    my ( $arg ) = @_;
    # Set defaults
    #                If option given              Use option            Else default
-   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $c->{newer_than};
+   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $config_ref->{newer_than};
    my $owner      = $arg->{owner};
    my $repo       = $arg->{repo};
    my $feed       = $arg->{feed};
@@ -562,27 +498,25 @@ sub git_feed
    return;
 }
 
-=head3 atom_feed
-Returns recent events from a Redmine atom feed.
-=cut
+# Returns recent events from a Redmine atom feed.
 sub atom_feed
 {
    my ( $arg ) = @_;
    # Set defaults
    #                If option given              Use option            Else default
-   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $c->{newer_than};
+   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $config_ref->{newer_than};
    my $feed       = $arg->{feed};
    my @events;
 
    warn "Getting atom feed for [$feed] ".
-      "records newer than [$newer_than]min" if $args->{debug};
+      "records newer than [$newer_than]min" if $cli_arg_ref->{debug};
 
    my $xml = XML::Feed->parse( URI->new( $feed )) or
       die "Feed error with [$feed] ".XML::Feed->errstr;
 
    for my $e ( $xml->entries )
    {
-      warn "Got bug title [$e->{title}]" if $args->{debug};
+      warn "Got bug title [$e->{title}]" if $cli_arg_ref->{debug};
 
       if ( $e->title =~ m/\A\w+ # Start with any word
          \s+
@@ -602,28 +536,25 @@ sub atom_feed
    return \@events;
 }
 
-
-=head2 TESTING
-
-New features should have tests to be run with the test suite.
-
-=cut
+#
+# TESTING
+# New features should have tests to be run with the test suite.
+#
 
 # regex data for IRC message matching. We store the data here so that it can be
 # tested and also use it in the bot's sub said dispatch table.
-
 # Words of wisdom trigger words
 $wisdom_trigger_words = 'wow|wisdom|speak|talk|words\s+of\s+wisdom';
-my $prefix = qr/$c->{irc}{nick}:?\s+/i;
-my %regex = (
+my $prefix = qr/$config_ref->{irc}{nick}:?\s+/i;
+my %irc_msg = (
    bug =>
    {
       regex => qr/(?:bug\s+ | \#) (\d{4,5}) /xi,
       input => [
          'bug 2333',
-         "!$c->{irc}{nick} bug 2333",
-         "$c->{irc}{nick}: bug 2333",
-         "!$c->{irc}{nick}: bug 2333",
+         "!$config_ref->{irc}{nick} bug 2333",
+         "$config_ref->{irc}{nick}: bug 2333",
+         "!$config_ref->{irc}{nick}: bug 2333",
          "#2333",
       ],
       capture => qr/\A2333\Z/,
@@ -632,9 +563,9 @@ my %regex = (
    {
       regex => qr/(?: (?:search|function) \s+ (\w+)) /xi,
       input  => [
-         "!$c->{irc}{nick} search data_expand",
-         "$c->{irc}{nick}: search data_expand",
-         "!$c->{irc}{nick}: function data_expand",
+         "!$config_ref->{irc}{nick} search data_expand",
+         "$config_ref->{irc}{nick}: search data_expand",
+         "!$config_ref->{irc}{nick}: function data_expand",
          "function data_expand",
          "the function data_expand",
       ],
@@ -644,10 +575,10 @@ my %regex = (
    {
          regex => qr/$prefix topic \s+ (\w+) /ix,
          input => [
-         "!$c->{irc}{nick} topic efl",
-         "$c->{irc}{nick}: topic efl",
-         "!$c->{irc}{nick}: topic efl",
-         "!$c->{irc}{nick}: topic delta",
+         "!$config_ref->{irc}{nick} topic efl",
+         "$config_ref->{irc}{nick}: topic efl",
+         "!$config_ref->{irc}{nick}: topic efl",
+         "!$config_ref->{irc}{nick}: topic delta",
       ],
       capture => qr/\A (efl|delta) \Z/ix,
    },
@@ -655,26 +586,26 @@ my %regex = (
    {
       regex => qr/$prefix ($wisdom_trigger_words) /ix, 
       input => [
-         "$c->{irc}{nick} wow",
-         "$c->{irc}{nick} wisdom",
-         "$c->{irc}{nick} speak",
-         "$c->{irc}{nick} talk",
-         "$c->{irc}{nick} words of wisdom",
+         "$config_ref->{irc}{nick} wow",
+         "$config_ref->{irc}{nick} wisdom",
+         "$config_ref->{irc}{nick} speak",
+         "$config_ref->{irc}{nick} talk",
+         "$config_ref->{irc}{nick} words of wisdom",
       ],
       capture => qr/$wisdom_trigger_words/i,
    },
 );
 
-=head2 TESTING SUBS
+#
+# TESTING SUBS
+#
 
-=head3 _run_tests
-Calls testing subs via a dispatch table.
-=cut
+# Calls testing subs via a dispatch table.
 sub _run_tests
 {
    # Test suite dispatch table.
    # Name your tests 't\d\d' to ensure order
-   my %tests = (
+   my %test = (
       t01 =>
       {
          name => \&_test_doc_help,
@@ -718,13 +649,13 @@ sub _run_tests
       t09 =>
       {
          name => \&_test_cfengine_bug_atom_feed,
-         arg => [{ 'feed' => "$c->{bug_feed}" => "newer_than", 6000 }]
+         arg => [{ 'feed' => "$config_ref->{bug_feed}" => "newer_than", 6000 }]
       },
       t10 =>
       {
          name => \&_test_git_feed,
          arg => [{
-            'feed' => $c->{git_feed}, 'owner' => 'cfengine',
+            'feed' => $config_ref->{git_feed}, 'owner' => 'cfengine',
             'repo' => 'core', 'newer_than' => '3000'
          }]
       },
@@ -740,33 +671,30 @@ sub _run_tests
       t13 =>
       {
          name => \&_test_body_regex,
-         arg => [ \%regex ]
+         arg => [ \%irc_msg ]
       },
    );
 
    # Run tests in order
-   for my $test ( sort keys %tests )
+   for my $next_test ( sort keys %test )
    {
-      $tests{$test}->{name}->( @{ $tests{$test}->{arg} } );
+      $test{$next_test}->{name}->( @{ $test{$next_test}->{arg} } );
    }
-   my $number_of_tests = keys %tests;
-   done_testing ( $number_of_tests );
+
+   done_testing();
+
    return;
 }
 
-=head3 _test_doc_help
-Test help and usage.
-=cut
+# Test help and usage.
 sub _test_doc_help
 {
    my $help = qx| $0 -? |;
-   ok( $help =~ m/Usage:.*?Requirements/ms,  "[$0] -h, for usage" );
+   ok( $help =~ m/options:.+/mis,  "[$0] -h, for usage" );
    return;
 }
 
-=head3 _test_topic_lookup
-Test sub that looks up topics
-=cut
+# Test sub that looks up topics
 sub _test_topic_lookup
 {
    my $keyword = shift;
@@ -779,9 +707,7 @@ sub _test_topic_lookup
    return;
 }
 
-=head3 _test_topic_not_found
-Test topic lookup sub when topic is not found.
-=cut
+# Test topic lookup sub when topic is not found.
 sub _test_topic_not_found
 {
    my $keyword = shift;
@@ -794,9 +720,7 @@ sub _test_topic_not_found
    return;
 }
 
-=head3 _test_bug_exists
-Test that get_bug sub returns a bug entry.
-=cut
+# Test that get_bug sub returns a bug entry.
 sub _test_bug_exists
 {
    my $bug = shift;
@@ -804,15 +728,13 @@ sub _test_bug_exists
 
    subtest 'Lookup existing bug' => sub
    {
-      ok( $msg->[0] =~ m|\A$c->{bug_tracker}/$bug|, "URL correct?" );
+      ok( $msg->[0] =~ m|\A$config_ref->{bug_tracker}/$bug|, "URL correct?" );
       ok( $msg->[0] =~ m|Variables not expanded inside array\Z|, "Subject correct?" );
    };
    return;
 }
 
-=head3 _test_bug_not_found
-Test that get_bug sub handle an unkown bug properly.
-=cut
+# Test that get_bug sub handle an unkown bug properly.
 sub _test_bug_not_found
 {
    my $bug = shift;
@@ -821,9 +743,7 @@ sub _test_bug_not_found
    return;
 }
 
-=head3 _test_bug_number_invalid
-Test that get_bug sub handles an invalid bug number.
-=cut
+# Test that get_bug sub handles an invalid bug number.
 sub _test_bug_number_invalid
 {
    my $bug = shift;
@@ -832,9 +752,7 @@ sub _test_bug_number_invalid
    return;
 }
 
-=head3 _test_function_search
-Test that fucntion search returns a url and a description.
-=cut
+# Test that fucntion search returns a url and a description.
 sub _test_function_search
 {
    my $keyword = shift;
@@ -842,7 +760,7 @@ sub _test_function_search
    subtest 'Search CFEngine documentation' => sub
    {
       ok( $matches->[0] =~
-         m|\A$c->{cf_docs_url}/reference-functions-$keyword.html|,
+         m|\A$config_ref->{cf_docs_url}/reference-functions-$keyword.html|,
          "Function URL"
       );
       ok( $matches->[0] =~
@@ -853,35 +771,29 @@ sub _test_function_search
    return;
 }
 
-=head3 _test_function_search_limit
-Test that fucntion search returns a limited number of entries.
-=cut
+# Test that fucntion search returns a limited number of entries.
 sub _test_function_search_limit
 {
    my $keyword = shift;
    my $matches = find_matches( $keyword );
-   ok( scalar @{ $matches } <= $c->{max_records}, "Limit number of returned records" );
+   ok( scalar @{ $matches } <= $config_ref->{max_records}, "Limit number of returned records" );
    return;
 }
  
-=head3 _test_cfengine_bug_atom_feed
-Test that bug feed returns at least one correct entry.
-=cut
+# Test that bug feed returns at least one correct entry.
 sub _test_cfengine_bug_atom_feed
 {
    my ( $arg ) = @_;
    my $events = atom_feed( $arg );
    # e.g. Feature #7346 (Open): string_replace function
    warn $events->[0].
-      ' =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i' if $args->{debug};
+      ' =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i' if $cli_arg_ref->{debug};
    ok( $events->[0] =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i,
       "Was a bug returned?" );
    return;
 }
 
-=head3 _test_git_feed
-Test that git feed returns at least one correct entry.
-=cut
+# Test that git feed returns at least one correct entry.
 sub _test_git_feed
 {
    my ( $arg ) = @_;
@@ -890,9 +802,7 @@ sub _test_git_feed
    return;
 }
 
-=head3 _test_words_of_wisdom
-Test that words of wisdom returns a string.
-=cut
+# Test that words of wisdom returns a string.
 sub _test_words_of_wisdom
 {
    my $random = shift;
@@ -901,9 +811,7 @@ sub _test_words_of_wisdom
    return;
 }
 
-=head3 _test_hush
-Test hushing function
-=cut
+# Test hushing function
 sub _test_hush
 {
    my $msg = hush();
@@ -915,22 +823,27 @@ sub _test_hush
    return;
 }
 
-=head3 _test_body_regex
-Test regexes used to trigger events from messages in the channel.
-=cut
+# Test regexes used to trigger events from messages in the channel.
 sub _test_body_regex
 {
-   my $regex = shift;
+   my $irc_msg = shift;
 
-   for my $r ( sort keys %{ $regex } )
+   for my $next_msg ( sort keys %{ $irc_msg } )
    {
-      for my $i ( @{ $regex{$r}->{input} } )
+      for my $next_input ( @{ $irc_msg{$next_msg}->{input} } )
       {
          subtest 'Testing body matching regexes' => sub
          {
-            warn "Testing [$i] =~ $regex{$r}->{regex}" if $args->{debug};
-            ok( $i =~ $regex{$r}->{regex}, "Does regex match message body?" );
-            ok( $LAST_PAREN_MATCH =~ $regex{$r}->{capture}, "Is the correct string captured?" );
+
+            # Debugging
+            if ( $cli_arg_ref->{debug} ) {
+               warn "Testing [$next_input] =~ $irc_msg{$next_msg}->{regex}";
+            }
+
+            ok( $next_input =~ $irc_msg{$next_msg}->{regex}
+               , "Does regex match message body?" );
+            ok( $LAST_PAREN_MATCH =~ $irc_msg{$next_msg}->{capture}
+               , "Is the correct string captured?" );
          }
       }
    }
@@ -941,34 +854,118 @@ sub _test_body_regex
 # Main matter
 #
 
-if ( $args->{help} )
-{
-   usage( 'HELP' );
-   exit;
-}
-elsif ( $args->{version} )
-{
-   say $VERSION;
-   exit;
-}
-
 # Load topics file
-my $topics_file = "$args->{home}/topics";
+my $topics_file = "$cli_arg_ref->{home}/topics";
 $topics = load_topics( file => $topics_file );
 
 # Load words of wisdom
-my $wow_file = "$args->{home}/words_of_wisdom";
+my $wow_file = "$cli_arg_ref->{home}/words_of_wisdom";
 $words_of_wisdom = load_words_of_wisdom( file => $wow_file );
 
-# Run test suite
-if ( $args->{test} )
-{
-   _run_tests;
-   exit;
-}
+if ( $cli_arg_ref->{test} ) { _run_tests(); exit }
 
 # Start the bot
-my $bot = Cfbot->new( %{ $c->{irc} } )->run;
+my $bot = Cfbot->new( %{ $config_ref->{irc} } )->run;
+
+#
+# Main POD
+#
+=pod
+
+=head1 SYNOPSIS
+
+C<< cfbot [-h|--home] <basedire> [-c|--config] [-t|--test] [-do|--docs_repo] <dir> [-de|--debug] [-he|-?|--help] >>
+Is an IRC chat bot for CFEngine channels on freenode. Run this
+script by hand for testing a hacking. Use the daemon.pl script to
+run cfbot.pl is regular service.
+
+=head1 OPTIONS
+
+=over 3
+
+=item
+
+C<< -h <basedir> >> Directory to find configuration file, CFEngine
+documentation file, and topic file. Defaults to the current directory.
+
+=item
+
+C<< -c <config file> >> YAML config file, defualts to <basedir>/cfbot.yml.
+
+=item
+
+C<< -do <dir> >> points to an on disk clone of the CFEngine documentation repository
+(L<https://github.com/cfengine/documentation>. Defaults to the current directory.
+
+=item
+
+C<< -t|--test >> Run developer test suite.
+
+=item
+
+C<< -de | --debug >> Run in debug mode. This will print more informationa and
+return more events from feeds.
+
+=back
+
+=head1 REQUIREMENTS
+
+Also needs POE::Component::SSLify, and POE::Component::Client::DNS.
+Known as libbot-basicbot-perl, libpoe-component-sslify-perl, and
+libpoe-component-client-dns-perl on Debian.
+
+=head1 HACKING
+
+=over 3
+
+=item
+
+To add new topics, edit the F<cfbot> file using the format of existing entries.
+
+=item
+
+The configuration file is F<cfbot.yml>.
+
+=item
+
+Use the test suite whenever possible. Add new tests with new features.
+
+=item
+
+Generally, bot responses come out of a dispatch table. All such response subs
+require the same input and output. A single string for input while output takes
+two forms. The first is to send the message or messages to STDOUT in the sub.
+The second is to return an array reference containing the output. The former
+will go the the IRC channel, the latter is used by the test suite.
+
+=back
+
+=head1 AUTHOR
+
+Neil H. Watson, http://watson-wilson.ca, C<< <neil@watson-wilson.ca> >>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2015 Neil H. Watson
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut
+
+#
+# Packages
+#
 
 package Cfbot;
 use base 'Bot::BasicBot'; 
@@ -976,17 +973,9 @@ use English;
 use Data::Dumper;
 use POE::Kernel;
 
-=head1 PACKAGE Cfbot
+# Subs in this package override Bot::BasicBot's own subs.
 
-=head2 SYNOPSIS
-
-Subs in this package override Bot::BasicBot's own subs.
-
-=head2 SUBS
-
-=head3 said
-Reads channel messages and takes action if messages match regexes.
-=cut
+# Reads channel messages and takes action if messages match regexes.
 sub said
 {
    my $self = shift;
@@ -994,93 +983,111 @@ sub said
    my $replies;
 
    my $now = Time::Piece->localtime();
+
+   # Be quiet if bot has been hushed.
    return if ( $now < $hush );
 
+   # Be quite if told to hush.
    if ( $msg->{raw_body} =~ m/$prefix (hush|(be\s+)?quiet|shut\s*up|silence) /ix )
    {
       push @{ $replies }, main::hush();
    }
 
+   # Messages that will trigger action.
    my @dispatch = (
       {
          name  => 'bug match',
-         regex => $regex{bug}{regex},
+         regex => $irc_msg{bug}{regex},
          run   => \&main::get_bug,
       },
       {
          name  => 'doc search',
-         regex => $regex{search}{regex},
+         regex => $irc_msg{search}{regex},
          run   => \&main::find_matches,
       },
       {
          name  => 'wow',
-         regex => $regex{wow}{regex},
+         regex => $irc_msg{wow}{regex},
          run   => \&main::say_words_of_wisdom,
       },
       {
          name  => 'topic search',
-         regex => $regex{topic}{regex},
+         regex => $irc_msg{topic}{regex},
          run   => \&main::lookup_topics,
       }
    );
+
    my $arg = 'undef';
 
-   for my $d ( @dispatch )
+   # Process each irc msg agains dispatch table
+   for my $next_dispatch ( @dispatch )
    {
-      warn "Checking dispatch $d->{name}" if $args->{debug};
-      warn "$msg->{raw_body} =~ $d->{regex}";
+      # Debuggin
+      if ( $cli_arg_ref->{debug} ) {
+         warn "Checking dispatch $next_dispatch->{name}";
+         warn "$msg->{raw_body} =~ $next_dispatch->{regex}";
+      }
 
-      if ( $msg->{raw_body} =~ $d->{regex} )
+      # If irc msg matches one in the dispatch table
+      if ( $msg->{raw_body} =~ $next_dispatch->{regex} )
       {
+         # Keep captured text from the irc msg
          if ( defined $LAST_PAREN_MATCH )
          {
             $arg = $LAST_PAREN_MATCH;
-            warn "Calling dispatch $d->{name}, arg [$arg]" if $args->{debug};
+
+            # Debugging
+            if ( $cli_arg_ref->{debug} ){
+               warn "Calling dispatch $next_dispatch->{name}, arg [$arg]";
+            }
+
+            # Call sub from disptach table
             $self->forkit({
-               run       => $d->{run},
+               run       => $next_dispatch->{run},
                arguments => [ $arg ],
-               channel   => $c->{irc}{channels}[0],
+               channel   => $config_ref->{irc}{channels}[0],
             });
             last;
          }
       }
    }
+
+   # Send a reply if there are any
    $self->reply( $msg, $_ ) foreach ( @{ $replies } );
+
    return;
 }
 
-=head3 forkit
-Forks any function provided to this sub via arguments. All output from the
-called sub bound for STDOUT will go to the channel.
-=cut
+# Forks any function provided to this sub via arguments. All output from the
+# called sub bound for STDOUT will go to the channel.
 sub forkit {
 # Overriding this one because the original has a bug.
-   my ( $self, $args ) = @_;
+   my ( $self, $arg_ref ) = @_;
 
-   return if !$args->{run};
+   return if !$arg_ref->{run};
 
-   $args->{handler}   = $args->{handler}   || "_fork_said";
-   $args->{arguments} = $args->{arguments} || [];
+   $arg_ref->{handler}   = $arg_ref->{handler}   || "_fork_said";
+   $arg_ref->{arguments} = $arg_ref->{arguments} || [];
 
 # Install a new handler in the POE kernel pointing to
 # $self->{$args{handler}}
-   $poe_kernel->state( $args->{handler}, $args->{callback} || $self  );
+   $poe_kernel->state( $arg_ref->{handler}, $arg_ref->{callback} || $self  );
 
    my $run;
-   if (ref($args->{run}) =~ /^CODE/) {
+   if (ref($arg_ref->{run}) =~ /^CODE/) {
      $run = sub {
          # Remove body from args, possible bug in orginal.
-         $args->{run}->( @{ $args->{arguments} })
+         $arg_ref->{run}->( @{ $arg_ref->{arguments} })
      };
    }
    else {
-     $run = $args->{run};
+     $run = $arg_ref->{run};
    }
    my $wheel = POE::Wheel::Run->new(
      Program      => $run,
      StdoutFilter => POE::Filter::Line->new(),
      StderrFilter => POE::Filter::Line->new(),
-     StdoutEvent  => "$args->{handler}",
+     StdoutEvent  => "$arg_ref->{handler}",
      StderrEvent  => "fork_error",
      CloseEvent   => "fork_close"
    );
@@ -1092,23 +1099,21 @@ sub forkit {
    $self->{forks}{ $wheel->ID } = {
      wheel => $wheel,
      args  => {
-         channel => $args->{channel},
-         who     => $args->{who},
-         address => $args->{address}
+         channel => $arg_ref->{channel},
+         who     => $arg_ref->{who},
+         address => $arg_ref->{address}
      }
    };
    return;
 }
 
-=head3 tick
-This sub is called automtically by the bot at the interval defined by the
-return statement at the end.
-=cut
+# This sub is called automtically by the bot at the interval defined by the
+# return statement at the end.
 sub tick
 {
    my $self=shift;
    my %wake_interval;
-   $wake_interval{seconds} = $c->{wake_interval} * 60;
+   $wake_interval{seconds} = $config_ref->{wake_interval} * 60;
    
    my $now = Time::Piece->localtime();
    return 60 if ( $now < $hush );
@@ -1116,12 +1121,12 @@ sub tick
    my @events = (
       {
          name => \&main::atom_feed,
-         arg  => [{ 'feed' => "$c->{bug_feed}" }]
+         arg  => [{ 'feed' => "$config_ref->{bug_feed}" }]
       },
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $c->{git_feed},
+            'feed'  => $config_ref->{git_feed},
             'owner' => 'cfengine',
             'repo'  => 'core',
          }]
@@ -1129,7 +1134,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $c->{git_feed},
+            'feed'  => $config_ref->{git_feed},
             'owner' => 'cfengine',
             'repo'  => 'masterfiles',
          }]
@@ -1137,7 +1142,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $c->{git_feed},
+            'feed'  => $config_ref->{git_feed},
             'owner' => 'evolvethinking',
             'repo'  => 'evolve_cfengine_freelib',
          }]
@@ -1145,7 +1150,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $c->{git_feed},
+            'feed'  => $config_ref->{git_feed},
             'owner' => 'evolvethinking',
             'repo'  => 'delta_reporting',
          }]
@@ -1153,7 +1158,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $c->{git_feed},
+            'feed'  => $config_ref->{git_feed},
             'owner' => 'neilhwatson',
             'repo'  => 'vim_cf3',
          }]
@@ -1161,7 +1166,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $c->{git_feed},
+            'feed'  => $config_ref->{git_feed},
             'owner' => 'neilhwatson',
             'repo'  => 'cfbot',
          }]
@@ -1177,22 +1182,22 @@ sub tick
       $self->forkit({
          run       => $e->{name},
          arguments => $e->{arg},
-         channel   => $c->{irc}{channels}[0],
+         channel   => $config_ref->{irc}{channels}[0],
       });
    }
    return $wake_interval{seconds};
 }
 
-=head3 help
-When someone says help to the bot this sub is run
-=cut
+# When someone says help to the bot this sub is run
 sub help
 {
    my $self = shift;
    $self->forkit({
       run       => \&main::lookup_topics,
       arguments => [ 'help' ],
-      channel   => $c->{irc}{channels}[0],
+      channel   => $config_ref->{irc}{channels}[0],
    });
    return;
 }
+
+1;
