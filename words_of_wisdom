@@ -1,6 +1,6 @@
 # Words of wisdom that the bot might say.
 Don't write your own CFEngine policy, use existing frameworks and save time.
-A self healing infracstructure means more uninterrrupted vacation time.
+A self healing infrastructure means more uninterrupted vacation time.
 Use vim_cf3 to edit your CFEngine policy in VIM: https://github.com/neilhwatson/vim_cf3 
 Use cfengine.el to edit your CFEngine in Emacs: comes with Emacs, or use https://github.com/cfengine/core/blob/master/contrib/cfengine.el 
 A mistake in your CFEngine policy is a mistake duplicated over a thousand hosts. Fully test your policy.
@@ -19,13 +19,13 @@ Use comments, handles, and promisees to document your promises.
 Embrace normal ordering, do not try to change it.
 Like crond, CFEngine's environment when it starts a shell process is different than your shell environment. Test commands promises carefully.
 The program cf-promises is a syntax checker and more. See cf-promises --help.
-Central promise reporting is avaiable through CFEngine addons CFEngine Enterprise, Rudder, and Delta Reporting. Search topics for more info.
+Central promise reporting is available through CFEngine addons CFEngine Enterprise, Rudder, and Delta Reporting. Search topics for more info.
 Ask me for help.
-Ask me about CFEngine best practices, and learn form CFEngine Champions.
+Ask me about CFEngine best practices, and learn from CFEngine Champions.
 CFEngine Enterprise is free up to 25 hosts.
 Idempotence and convergence are the two fundamental CFEngine promise properties.
 CFEngine is built on the foundation of promise theory.
-Promise syntax: "promiser string" -> "optional promissee" attribute1 => "value1", attribute2 => "value2", ...;
+Promise syntax: "promiser string" -> "optional promisee" attribute1 => "value1", attribute2 => "value2", ...;
 The ifvarclass/if/unless, comment, handle, and meta promise attributes are universal and can apply to any promise.
 New in 3.7: "mycontainer" data => '{ ... JSON data ... }'; # no need for parsejson()
 New in 3.7: string_mustache() to create a string from a Mustache template.
