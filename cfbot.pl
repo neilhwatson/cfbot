@@ -183,8 +183,7 @@ sub _file_not_gw_writable {
 }
 
 # Test for words that should not be searched for.
-sub _skip_words
-{
+sub _skip_words {
    my $word = shift;
    my @words = ( qw/ a an the and or e promise is function functions query/ );
 
@@ -195,8 +194,7 @@ sub _skip_words
 }
 
 # Load words of wisdom file into ram.
-sub load_words_of_wisdom
-{
+sub load_words_of_wisdom {
    my %args = @_;
    my @words_of_wisdom;
 
@@ -214,8 +212,7 @@ sub load_words_of_wisdom
 }
 
 # Tests for new records from feeds.
-sub time_cmp
-{
+sub time_cmp {
    # Expects newer_than to be in minutes.
    my ( $arg ) = @_;
 
@@ -438,8 +435,7 @@ sub get_bug
 }
 
 # Returns recent events from a github repository.
-sub git_feed
-{
+sub git_feed {
    my ( $arg ) = @_;
    # Set defaults
    #                If option given              Use option            Else default
@@ -471,7 +467,7 @@ sub git_feed
          $msg = "Pull request $e->{payload}{action} in $owner:$repo ".
             "by $e->{payload}{pull_request}{user}{login}, ".
             "$e->{payload}{pull_request}{title}, ".
-            "$e->{payload}{pull_request}{url}";
+            "$e->{payload}{pull_request}{html_url}";
       }
       elsif ( $e->{type} eq 'IssuesEvent' )
       {

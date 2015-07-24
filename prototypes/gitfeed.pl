@@ -8,53 +8,53 @@ use JSON;
 use Data::Dumper;
 use feature 'say';
 
-my $c = { newer_than => 15 };
+my $config_ref = { newer_than => 15 };
 
-git_feed( 
+git_feed({ 
    feed => 'https://api.github.com/repos',
    owner => 'cfengine',
    repo => 'core',
    newer_than => 5000 
-);
+});
 
-sub git_feed
-{
-   my %args = ( newer_than => $c->{newer_than}, @_);
+# Returns recent events from a github repository.
+sub git_feed {
+   my ( $arg ) = @_;
+   # Set defaults
+   #                If option given              Use option            Else default
+   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $config_ref->{newer_than};
+   my $owner      = $arg->{owner};
+   my $repo       = $arg->{repo};
+   my $feed       = $arg->{feed};
    
    my @events;
    my $client = HTTP::Tiny->new();
-   my $response = $client->get( "$args{feed}/$args{owner}/$args{repo}/events" );
+   my $response = $client->get( "$feed/$owner/$repo/events" );
 
    my $j = JSON->new->pretty->allow_nonref;
    my $events = $j->decode( $response->{content} );
 
-   my $l = scalar @{ $events };
-   say "events length before splice = $l";
-   splice @{ $events }, 2;
-   $l = scalar @{ $events };
-   say "events length after splice [2] = $l";
-
    for my $e ( @{ $events } )
    {
-      next unless entry_new ( updated => $e->{created_at}, newer_than => $args{newer_than} );
+      next unless time_cmp({ time => $e->{created_at}, newer_than => $newer_than });
 
       my $msg;
-      if ( $e->{type} eq 'PushEvent' )
+      if ( $e->{type} eq 'PushEvent' and $owner !~ m/\Acfengine\Z/i )
       {
          my $message = substr( $e->{payload}{commits}->[0]{message}, 0, 60 );
-         $msg = "Push in $args{owner}:$args{repo} by $e->{actor}{login}, $message ..., ".
-            "https://github.com/$args{owner}/$args{repo}/commit/$e->{payload}{head}";
+         $msg = "Push in $owner:$repo by $e->{actor}{login}, $message..., ".
+            "https://github.com/$owner/$repo/commit/$e->{payload}{head}";
       }
       elsif ( $e->{type} eq 'PullRequestEvent' )
       {
-         $msg = "Pull request $e->{payload}{action} in $args{owner}:$args{repo} ".
+         $msg = "Pull request $e->{payload}{action} in $owner:$repo ".
             "by $e->{payload}{pull_request}{user}{login}, ".
             "$e->{payload}{pull_request}{title}, ".
-            "$e->{payload}{pull_request}{url}";
+            "$e->{payload}{pull_request}{html_url}";
       }
       elsif ( $e->{type} eq 'IssuesEvent' )
       {
-         $msg = "Issue in $args{owner}:$args{repo} $e->{payload}{action} ".
+         $msg = "Issue in $owner:$repo $e->{payload}{action} ".
             "by $e->{payload}{issue}{user}{login}, $e->{payload}{issue}{title}, ".
             "$e->{payload}{issue}{html_url}";
       }
@@ -74,11 +74,13 @@ sub git_feed
    {
       return 0;
    }
+   return;
 }
+
 
 sub atom_feed
 {
-   my %args = ( newer_than => $c->{newer_than}, @_ );
+   my %args = ( newer_than => $config_ref->{newer_than}, @_ );
    my @events;
 
    my $feed = XML::Feed->parse( URI->new( $args{feed} )) or
@@ -94,6 +96,22 @@ sub atom_feed
    say $_ foreach ( @events );
    return \@events;
 }
+
+# Tests for new records from feeds.
+sub time_cmp {
+   # Expects newer_than to be in minutes.
+   my ( $arg ) = @_;
+
+   $arg->{time} =~ s/Z\Z//g;
+   $arg->{time} = Time::Piece->strptime( $arg->{time}, "%Y-%m-%dT%H:%M:%S" );
+
+   my $now  = Time::Piece->gmtime();
+   $arg->{newer_than} = $now - $arg->{newer_than} * 60;
+
+   return 1 if ( $arg->{time} > $arg->{newer_than} );
+   return;
+}
+
 
 sub entry_new
 {
