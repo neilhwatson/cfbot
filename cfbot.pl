@@ -185,7 +185,10 @@ sub _file_not_gw_writable {
 # Test for words that should not be searched for.
 sub _skip_words {
    my $word = shift;
-   my @words = ( qw/ a an the and or e promise is function functions query/ );
+   my @words = ( qw/
+      a an the and or e promise is function functions query that
+      
+      / );
 
    warn "_skip_words arg = [$word]" if $cli_arg_ref->{debug};
 
