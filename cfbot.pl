@@ -186,7 +186,7 @@ sub _file_not_gw_writable {
 sub _skip_words {
    my $word = shift;
    my @words = ( qw/
-      a an the and or e promise is function functions query that
+      a an the and or e promise is function functions query that on
       
       / );
 
