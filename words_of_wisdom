@@ -32,7 +32,7 @@ New in 3.7: string_mustache() to create a string from a Mustache template.
 New in 3.7: in Mustache templates, {{@}} is the iteration key.
 New in 3.7: in Mustache templates, {{%variable}} serializes a variable as multi-line JSON and {{$variable}} in a single line.
 New in 3.7: JSON output is canonical (keys in maps are always sorted).
-New in 3.7: new packages promises with pluggable backends.
+New in 3.7: new packages promises with pluggable backends.  See https://docs.cfengine.com/latest/reference-standard-library-package_modules.html for the package module protocol.
 New in 3.7: YAML support, see readyaml() and parseyaml() and readdata().
 New in 3.7: readdata("auto|YAML|JSON|CSV", "filename") will use the file extension in auto mode.
 New in 3.7: CSV read into data container with readcsv()
