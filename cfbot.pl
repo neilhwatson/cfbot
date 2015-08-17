@@ -186,8 +186,7 @@ sub _file_not_gw_writable {
 sub _skip_words {
    my $word = shift;
    my @words = ( qw/
-      a an the and or e promise is function functions query that on
-      
+      a an the and or e promise is function functions query that on key
       / );
 
    warn "_skip_words arg = [$word]" if $cli_arg_ref->{debug};
