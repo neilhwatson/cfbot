@@ -21,3 +21,5 @@ Normal ordering=https://docs.cfengine.com/latest/guide-language-concepts-normal-
 irclogs=http://www.cmdln.org/cfengine_irclogs/
 books=Learning CFEngine http://shop.oreilly.com/product/0636920022022.do
 classes=https://docs.cfengine.com/docs/master/guide-language-concepts-classes.html
+CPF or cf_promises_validated=A mechanism to reduce agent requests to the server for new inputs. See https://docs.cfengine.com/latest/guide-writing-and-serving-policy-policy-framework.html#cf_promises_validated and  http://www.cmdln.org/2012/10/24/cfengine-3-policy-update-or-how-cf_promises_validated-works/
+Autorun=Have cf-agent automatically run policies in certain directories. See https://digitalelf.net/2014/07/a-primer-on-cfengine-3-dot-6-autorun/ and a working example: https://github.com/evolvethinking/evolve_cfengine_freelib/blob/master/INSTALL.md and https://github.com/evolvethinking/evolve_cfengine_freelib/blob/master/masterfiles/services/autorun/efl.cf
