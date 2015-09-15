@@ -11,7 +11,7 @@ use Getopt::Long;
 use HTTP::Tiny;
 use JSON;
 use Pod::Usage;
-use Test::More tests => 31;
+use Test::More tests => 29;
 use Time::Piece;
 use Web::Query;
 use XML::Feed;
@@ -19,7 +19,7 @@ use feature 'say';
 
 our $VERSION = 1.0;
 
-my ( $topics, $words_of_wisdom, $wisdom_trigger_words );
+my ( $topics, $words_of_wisdom, $wisdom_trigger_words, $cfe_function_ref );
 my $hush = 0;
 
 #
@@ -244,8 +244,6 @@ sub load_topics
    }
    close $fh;
 
-   say 'Topics: '. Dumper( \%topics ) if $cli_arg_ref->{debug};
-
    return \%topics;
 }
 
@@ -314,87 +312,99 @@ sub lookup_topics
 }
 
 # Searched CFEngine function documentation for a  given keyword.
-sub find_matches
-{
-   my $word = shift;
-   say "word [$word]" if $cli_arg_ref->{debug};
-   return ([]) if _skip_words( $word );
+sub index_cfe_functions {
+   my ( $arg_ref ) = @_;
+   my @functions;
+   my %function;
 
-   my $documentation_checkout = $cli_arg_ref->{docs_repo};
-   unless (chdir $documentation_checkout)
-   {
-       warn "Couldn't change into '$documentation_checkout': $!";
-       return;
+   # Check that the source dir is valid.
+   my $doc_dir = defined $arg_ref->{dir} ? $arg_ref->{dir} : 'not provided';
+
+   if ($doc_dir eq 'not provided' ){
+      warn "Doc_dir [$doc_dir] was not provided";
+      return;
    }
 
-   my $matches = `/usr/bin/git grep '$word' | /bin/grep 'reference/functions/'`;
+   if (
+      -d $doc_dir and 
+      -r $doc_dir and
+      -x $doc_dir
+   ){
 
-   my @matches = map { { data => $_ } } split "\n", $matches;
-
-   my %seen;
-
-   my @processed_matches;
-   foreach my $match (@matches)
-   {
-    my ($location, $data) = split ':', $match->{data}, 2;
-    next if exists $seen{$location};
-
-    my $published = 0;
-
-    $match->{url} = "[URL unknown]";
-    $match->{summary} = "[Summary not found]";
-
-    warn "Opening file at $location" if $cli_arg_ref->{debug};
-    open my $refd, '<', $location or warn "Couldn't open $location: $!";
-    my @lines = <$refd>;
-    close $refd or warn "Couldn't close $location: $!";;
-
-    readdesc: for (@lines)
-    {
-     chomp;
-     if (m/^title:\s+(.+)/)
-     {
-      my $title = $1;
-      $title =~ s/[]|"[]//g;
-      $match->{url} = "$config_ref->{cf_docs_url}/reference-functions-$title.html";
-     }
-     elsif ($match->{summary} && m/^.+History:\W+\s+(.+)/)
-     {
-      $match->{summary} .= " ($1)";
-     }
-     elsif (m/^published: true/)
-     {
-      $published = 1;
-     }
-     elsif (m/^.+Description:\W+\s+(.+)/)
-     {
-         $match->{summary} = $1;
-         for (@lines) 
-         {
-             chomp;
-             next readdesc unless m/.+/;
-             $match->{summary} .= ' ' . $_;
+   # Read dir and collection function names.
+      opendir( my $ls_doc_dir, $doc_dir) or die "Cannot read $doc_dir $!";
+      while ( my $next_file = readdir($ls_doc_dir) ){
+         
+         # Get function names from *.markdown files.
+         if ( $next_file =~ m/\A(.*?)\.markdown\Z/ ){
+            my $function_name = $1;
+            push @functions, $function_name;
          }
-     }
-    }
-
-    next unless $published;
-    $seen{$location}++;
-    push @processed_matches, "$match->{url} $match->{summary}";
+      }
+      closedir $ls_doc_dir;
+   }
+   else {
+      warn "Doc_dir [$doc_dir] is not readable, executable, ".
+         "or is not a directory";
+      return;
    }
 
-   if ( scalar @processed_matches < $config_ref->{max_records} )
-   {
-      say $_ foreach ( @processed_matches);
-      return \@processed_matches;
+   # Read each function file and get the function description.
+   for my $next_function ( @functions ) {
+
+      # Get file contents and skip reading if there's a problem.
+      my $file_name = $doc_dir."/".$next_function.".markdown";
+      open my $function_file, "<", $file_name or next;
+      my $file_contents = do { local $/; <$function_file> };
+      close $function_file;
+
+      # Now read contents at get description;
+      if ( $file_contents=~ m/
+         \Q**Description:**\E \s+ ([^\n]+)\n   # First description line.
+         ^\s*$       # Blank line
+         (.+?)       # Get next paragraph is it's not
+         (?:
+            (?: ^\s*$ ) # A blank line
+            |
+            (?: ^\*\* ) # Begins with **
+            |
+            (?: ^\[ )   # Beings with [
+         )
+         /msx 
+      ){
+         $function{$next_function}{description} = defined $2 ? $1." ".$2 : $1;
+         # remove trailing whitespace
+         $function{$next_function}{description} =~ s/\s+$//ms;
+         # replace newlines with a space 
+         $function{$next_function}{description} =~ s/\n/ /gms;
+
+         $function{$next_function}{url}
+            =$config_ref->{cf_docs_url}
+               ."/reference-functions-".$next_function.".html";
+      }
    }
+   return \%function;
+}
 
-   my $count = scalar @processed_matches;
-   splice @processed_matches, $config_ref->{max_records} - 1;
-   push @processed_matches, "... $count matches found, but only showing $config_ref->{max_records} matches";
+sub reply_with_function{
+   my $message = shift;
+   my $reply = '';
 
-   say $_ foreach ( @processed_matches);
-   return \@processed_matches;
+   ( my @functions ) = $message =~ m/(\w*) \s* function \s* (\w*)/msx;
+
+   for my $next_function ( @functions ){
+
+      if ( exists $cfe_function_ref->{$next_function}{description} ) {
+
+         $reply .= <<END_REPLY;
+FUNCTION $next_function
+$cfe_function_ref->{$next_function}{description}
+URL $cfe_function_ref->{$next_function}{url}
+END_REPLY
+      }
+   }
+   say $reply if $reply ne '';
+   return $reply;
 }
 
 # Looks up a CFEngine bug from a given number.
@@ -501,8 +511,8 @@ sub atom_feed
 {
    my ( $arg ) = @_;
    # Set defaults
-   #                If option given              Use option            Else default
-   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $config_ref->{newer_than};
+   my $newer_than = exists $arg->{newer_than}
+      ? $arg->{newer_than} : $config_ref->{newer_than};
    my $feed       = $arg->{feed};
    my @events;
 
@@ -514,14 +524,12 @@ sub atom_feed
 
    for my $e ( $xml->entries )
    {
-      warn "Got bug title [$e->{title}]" if $cli_arg_ref->{debug};
-
       if ( $e->title =~ m/\A\w+ # Start with any word
          \s+
          \#\d{4,5} # bug number
          \s+
          \( (Open|Closed|Merged|Rejected|Unconfirmed) \) # Status of bug
-         /ix 
+         /imsx 
 
          and
 
@@ -557,17 +565,20 @@ my %irc_msg = (
       ],
       capture => qr/\A2333\Z/,
    },
-   search =>
+   function =>
    {
-      regex => qr/(?: (?:search|function) \s+ (\w+)) /xi,
+      regex => qr/(\w* \s* function \s* \w*)/xmsi,
       input  => [
-         "!$config_ref->{irc}{nick} search data_expand",
-         "$config_ref->{irc}{nick}: search data_expand",
          "!$config_ref->{irc}{nick}: function data_expand",
          "function data_expand",
          "the function data_expand",
+         "data_expand function"
       ],
-      capture => qr/\Adata_expand\Z/,
+      capture => qr/\A
+         (?: data_expand \s+ function )
+         |
+         (?: function \s+ data_expand )
+      \Z/msxi,
    },
    topic =>
    {
@@ -637,19 +648,14 @@ sub _run_tests
       t07 =>
       {
          name => \&_test_function_search,
-         arg  => [ 'data_expand' ]
+         arg  => [ 'function data_expand' ]
       },
       t08 =>
-      {
-         name => \&_test_function_search_limit,
-         arg  => [ 'files' ]
-      },
-      t09 =>
       {
          name => \&_test_cfengine_bug_atom_feed,
          arg => [{ 'feed' => "$config_ref->{bug_feed}" => "newer_than", 6000 }]
       },
-      t10 =>
+      t09 =>
       {
          name => \&_test_git_feed,
          arg => [{
@@ -657,16 +663,16 @@ sub _run_tests
             'repo' => 'core', 'newer_than' => '3000'
          }]
       },
-      t11 =>
+      t10 =>
       {
          name => \&_test_words_of_wisdom,
          arg => [ 'wow' ],
       },
-      t12 =>
+      t11 =>
       {
          name => \&_test_hush,
       },
-      t13 =>
+      t12 =>
       {
          name => \&_test_body_regex,
          arg => [ \%irc_msg ]
@@ -750,18 +756,20 @@ sub _test_bug_number_invalid
    return;
 }
 
-# Test that fucntion search returns a url and a description.
+# Test that function search returns a url and a description.
 sub _test_function_search
 {
    my $keyword = shift;
-   my $matches = find_matches( $keyword );
+   my $reply = reply_with_function( $keyword );
    subtest 'Search CFEngine documentation' => sub
    {
-      ok( $matches->[0] =~
-         m|\A$config_ref->{cf_docs_url}/reference-functions-$keyword.html|,
+      ok( $reply =~
+         m{
+            URL \s+ $config_ref->{cf_docs_url}/reference-functions-\w+\.html
+         }mxsi,
          "Function URL"
       );
-      ok( $matches->[0] =~
+      ok( $reply =~
          m/Transforms a data container to expand all variable references/,
          "Function summary"
       );
@@ -769,15 +777,6 @@ sub _test_function_search
    return;
 }
 
-# Test that fucntion search returns a limited number of entries.
-sub _test_function_search_limit
-{
-   my $keyword = shift;
-   my $matches = find_matches( $keyword );
-   ok( scalar @{ $matches } <= $config_ref->{max_records}, "Limit number of returned records" );
-   return;
-}
- 
 # Test that bug feed returns at least one correct entry.
 sub _test_cfengine_bug_atom_feed
 {
@@ -840,6 +839,7 @@ sub _test_body_regex
 
             ok( $next_input =~ $irc_msg{$next_msg}->{regex}
                , "Does regex match message body?" );
+            warn" ok( $LAST_PAREN_MATCH =~ $irc_msg{$next_msg}->{capture}";
             ok( $LAST_PAREN_MATCH =~ $irc_msg{$next_msg}->{capture}
                , "Is the correct string captured?" );
          }
@@ -859,6 +859,11 @@ $topics = load_topics( file => $topics_file );
 # Load words of wisdom
 my $wow_file = "$cli_arg_ref->{home}/words_of_wisdom";
 $words_of_wisdom = load_words_of_wisdom( file => $wow_file );
+
+# Build index of cfe functions
+$cfe_function_ref = index_cfe_functions({
+   dir => "$cli_arg_ref->{docs_repo}/reference/functions"
+});
 
 if ( $cli_arg_ref->{test} ) { _run_tests(); exit }
 
@@ -999,9 +1004,9 @@ sub said
          run   => \&main::get_bug,
       },
       {
-         name  => 'doc search',
-         regex => $irc_msg{search}{regex},
-         run   => \&main::find_matches,
+         name  => 'function search',
+         regex => $irc_msg{function}{regex},
+         run   => \&main::reply_with_function,
       },
       {
          name  => 'wow',
@@ -1020,7 +1025,7 @@ sub said
    # Process each irc msg agains dispatch table
    for my $next_dispatch ( @dispatch )
    {
-      # Debuggin
+      # Debugging
       if ( $cli_arg_ref->{debug} ) {
          warn "Checking dispatch $next_dispatch->{name}";
          warn "$msg->{raw_body} =~ $next_dispatch->{regex}";
@@ -1171,6 +1176,10 @@ sub tick
       },
       {
          name => \&main::say_words_of_wisdom,
+         arg  => [ '' ],
+      },
+      {
+         name => \&main::index_cfe_functions,
          arg  => [ '' ],
       },
    );
