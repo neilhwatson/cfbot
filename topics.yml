@@ -1,0 +1,150 @@
+---
+- keywords:
+   - emacs
+   - cfengine_el
+   - policy editor
+   - ide
+  topic: Cfengine_el is an EMACS plugin to edit your CFEngine code: https://github.com/cfengine/core/blob/master/contrib/cfengine.el
+
+- keywords:
+   - best practices
+  topic: CFEngine best practices: http://evolvethinking.com/category/cfengine/best-practices/and https://github.com/atsaloli/cf-health-check
+
+- keywords:
+   - About cfbot
+  topic: I am a Perl script and I am open source: https://github.com/neilhwatson/cfbot See Help for more info.
+
+- keywords:
+   - bugs
+   - feature request
+   - bug tracker
+  topic: CFEngine bug and feature request tracker: https://dev.cfengine.com/projects/core/activity. You can vote for bugs and features by using the 'watch' feature.
+
+- keywords:
+   - delta hardening
+   - hardening
+   - nsa
+   - nist
+  topic: Delta Hardening is an open source data pack for EFL. DH provides ready to use host hardening policy based on NSA and NIST recommendations. http://evolvethinking.com/products/delta_hardening/, https://github.com/evolvethinking/evolve_cfengine_freelib/tree/3.5/policy_data/delta_hardening
+
+- keywords:
+   - documentation
+   - reference guide
+  topic: CFEngine Documentation: https://docs.cfengine.com/latest/
+
+- keywords:
+   - delta reporting
+   - promise reporting
+   - auditing
+   - auditor
+   - compliance
+  topic: Delta Reporting is an open source policy compliance and reporting tool for CFEngine. https://github.com/evolvethinking/delta_reporting
+ 
+- keywords:
+   - enterprise
+   - nova
+   - promise reporting
+   - auditing
+   - auditor
+   - compliance
+  topic: CFEngine Enterprise offers additional features primarily geared toward fine grained web based reporting for inventory and auditory compliance. http://cfengine.com/product
+
+- keywords:
+   - efl
+   - evolve free library
+   - policy library
+   - cookbook
+   - policy framework
+   - promise framework
+  topic: The Evolve Free Library (EFL) is an open source, production ready CFEngine policy framework. https://github.com/evolvethinking/evolve_cfengine_freelib
+
+- keywords:
+   - Frameworks
+  topic: NCF and EFL are two third party policy frameworks for CFEngine designed to extend or replace the default MPF. Both are designed to help users get more work done in a shorter time frame. See EFL, MPF, and NCF for more information.
+
+- keywords:
+   - mpf
+   - masterfiles policy
+   - policy framework
+   - promise framework
+  topic: The Masterfiles Policy Framework is the default policy set which provides a starting point for both CFEngine Community and CFEngine Enterprise to base your own policy on top of. It can be extended or replaced entirely by a 3rd party framework (like EFL and NCF). https://docs.cfengine.com/latest/guide-writing-and-serving-policy-policy-framework.html https://github.com/cfengine/masterfiles/
+
+- keywords:
+   - ncf
+   - policy framework
+   - promise framework
+  topic: NCF is a framework that runs in pure CFEngine language, to help structure your CFEngine policy and provide reusable, single purpose components distributed under the GPLv3 license. http://www.ncf.io 
+
+- keywords:
+   - rudder
+   - promise reporting
+   - auditing
+   - auditor
+   - compliance
+  topic: Rudder is an easy to use, web-driven, role-based solution for IT Infrastructure Automation and Compliance. It runs on CFEengine. http://www.rudder-project.org/site/
+
+- keywords:
+   - connection debugging
+  topic:  Client side connection errors can be seen by running cf-agent -v, in verbose mode, but most errors will be better explained by the server. Run cf-serverd in verbose mode with cf-serverd -vF > server.txt.
+
+- keywords:
+      - support
+      - consulting 
+  topic: Third party CFEngine consultants: http://www.verticalsysadmin.com/cfengine/ps.htm
+
+- keywords:
+   - test topic
+  topic: This topic is for testing the cfbot. Do not remove.
+
+- keywords:
+   - vim
+   - vim_cf3
+   - policy editor
+   - ide
+  topic: Vim_cf3 Is a VIM plugin for editing CFEngine code: https://github.com/neilhwatson/vim_cf3 
+
+- keywords:
+   - mailing list
+   - user group
+   - forum
+   - support
+   - cfengine help
+  topic: The CFEngine mailing list and Google group: https://groups.google.com/forum/#!forum/help-cfengine
+
+- keywords:
+   - normal ordering
+   - promise order
+  topic: Normal ordering, do not try to change it, https://docs.cfengine.com/latest/guide-language-concepts-normal-ordering.html
+
+- keywords:
+   - irc log
+   - irc logs
+   - chat log
+   - chat logs
+   - irclog
+   - irclogs
+   - chatlog
+   - chatlogs
+  topic: #cfengine logs: http://www.cmdln.org/cfengine_irclogs/
+
+- keywords:
+   - cfengine book
+   - cfengine books
+   - learning cfengine
+   - cfengine help
+   - diego's book
+  topic: Learning CFEngine, by Diego Zamboni, is the best CFEngine book available: http://shop.oreilly.com/product/0636920022022.do
+
+- keywords:
+   - cfengine classes
+   - what are classes
+  topic: Classes are one of the hardest and most important concept of CFEngine: https://docs.cfengine.com/docs/master/guide-language-concepts-classes.html
+
+- keywords:
+   - CPV
+   - cf_promises_validated
+  topic: The file cf_promises_validated is a mechanism to reduce agent requests to the server for new inputs. See https://docs.cfengine.com/latest/guide-writing-and-serving-policy-policy-framework.html#cf_promises_validated and http://www.cmdln.org/2012/10/24/cfengine-3-policy-update-or-how-cf_promises_validated-works/
+
+- keywords:
+   - Autorun
+  topic: Use CFEngine's mastefiles autorun policy to make cf-agent automatically run policies in certain directories. See https://digitalelf.net/2014/07/a-primer-on-cfengine-3-dot-6-autorun/ and a working example: https://github.com/evolvethinking/evolve_cfengine_freelib/blob/master/INSTALL.md and https://github.com/evolvethinking/evolve_cfengine_freelib/blob/master/masterfiles/services/autorun/efl.cf

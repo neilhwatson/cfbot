@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Carp;
 use Config::YAML;
+use YAML qw/ LoadFile /;
 use Cwd;
 use Data::Dumper;
 use English;
@@ -11,7 +12,7 @@ use Getopt::Long;
 use HTTP::Tiny;
 use JSON;
 use Pod::Usage;
-use Test::More tests => 29;
+use Test::More tests => 26;
 use Time::Piece;
 use Web::Query;
 use XML::Feed;
@@ -19,7 +20,12 @@ use feature 'say';
 
 our $VERSION = 1.0;
 
-my ( $topics, $words_of_wisdom, $wisdom_trigger_words, $cfe_function_ref );
+# TODO remove $topics
+my (
+   $topics, $words_of_wisdom, $wisdom_trigger_words, $cfe_function_ref,
+   %topic_index, %topic_keyword_index
+);
+
 my $hush = 0;
 
 #
@@ -182,6 +188,7 @@ sub _file_not_gw_writable {
    return 1;
 }
 
+# TODO remove?
 # Test for words that should not be searched for.
 sub _skip_words {
    my $word = shift;
@@ -228,6 +235,7 @@ sub time_cmp {
    return;
 }
 
+# TODO remove
 # Load topics into ram.
 sub load_topics
 {
@@ -245,6 +253,113 @@ sub load_topics
    close $fh;
 
    return \%topics;
+}
+
+# Make index for topics for given keywords
+sub index_topics {
+   my $topics_file = shift;
+
+   unless ( -f $topics_file and -r $topics_file  ) {
+      warn "$topics_file is not readable or plain";
+      return;
+   }
+
+   my $topics_yml = LoadFile( $topics_file )
+      or die "Cannot load topics.yml $!";
+   my $i = 0;
+
+# Build a fast index for keyword searches
+   for my $next_topic ( @{ $topics_yml } ) {
+
+      # Store topic in index.
+      $topic_index{$i} = $next_topic->{topic};
+
+      for my $next_keyword ( @{ $next_topic->{keywords} } ) {
+
+            # Store keyworkd in index.
+            push @{ $topic_keyword_index{$next_keyword} }, $i;
+      }
+      $i++;
+   }
+}
+
+# Searched CFEngine function documentation for a given keyword.
+sub index_cfe_functions {
+   my ( $arg_ref ) = @_;
+   my @functions;
+   my %function;
+
+   # Check that the source dir is valid.
+   my $doc_dir = defined $arg_ref->{dir} ? $arg_ref->{dir} : 'not provided';
+
+   if ($doc_dir eq 'not provided' ){
+      warn "Doc_dir [$doc_dir] was not provided";
+      return;
+   }
+
+   if (
+      -d $doc_dir and 
+      -r $doc_dir and
+      -x $doc_dir
+   ){
+
+   # Read dir and collection function names.
+      opendir( my $ls_doc_dir, $doc_dir) or die "Cannot read $doc_dir $!";
+      while ( my $next_file = readdir($ls_doc_dir) ){
+         
+         # Get function names from *.markdown files.
+         if ( $next_file =~ m/\A(.*?)\.markdown\Z/ ){
+            my $function_name = $1;
+            push @functions, $function_name;
+         }
+      }
+      closedir $ls_doc_dir;
+   }
+   else {
+      warn "Doc_dir [$doc_dir] is not readable, executable, ".
+         "or is not a directory";
+      return;
+   }
+
+   # Read each function file and get the function description.
+   for my $next_function ( @functions ) {
+
+      # Get file contents and skip reading if there's a problem.
+      my $file_name = $doc_dir."/".$next_function.".markdown";
+      open my $function_file, "<", $file_name or next;
+      my $file_contents = do { local $/; <$function_file> };
+      close $function_file;
+
+      # Now read contents at get description;
+      if ( $file_contents=~ m/
+         \Q**Description:**\E \s+ (.*?) # First description paragraph.
+         ^\s*$                          # Blank line
+
+         # Optional second paragraph
+         (?:
+            (.+?)                       # Get next paragraph if it's not
+            (?:
+               (?: ^\s*$ )              # A blank line
+               |
+               (?: ^\*\* )              # Begins with **
+               |
+               (?: ^\Q[%CFEngine\E )    # Beings with [%CFEngine
+            )
+         )?
+         /msx 
+      ){
+         $function{$next_function}{description} = defined $2 ? $1." ".$2 : $1;
+         # remove trailing whitespace
+         $function{$next_function}{description} =~ s/\s+$//ms;
+         # replace newlines with a space 
+         $function{$next_function}{description} =~ s/\n/ /gms;
+
+         $function{$next_function}{url}
+            =$config_ref->{cf_docs_url}
+               ."/reference-functions-".$next_function.".html";
+      }
+   }
+   return \%function;
 }
 
 #
@@ -294,6 +409,7 @@ sub say_words_of_wisdom
    return $message
 }
 
+# TODO Remove
 # Search topics file for a given keyword.
 sub lookup_topics
 {
@@ -311,79 +427,40 @@ sub lookup_topics
    return \@found;
 }
 
-# Searched CFEngine function documentation for a  given keyword.
-sub index_cfe_functions {
-   my ( $arg_ref ) = @_;
-   my @functions;
-   my %function;
+# Search msg for keywords and return topics.
+sub reply_with_topic {
+   my $msg = shift;
+   warn "my msg is [$msg]";
+   my @replies;
 
-   # Check that the source dir is valid.
-   my $doc_dir = defined $arg_ref->{dir} ? $arg_ref->{dir} : 'not provided';
-
-   if ($doc_dir eq 'not provided' ){
-      warn "Doc_dir [$doc_dir] was not provided";
-      return;
-   }
-
-   if (
-      -d $doc_dir and 
-      -r $doc_dir and
-      -x $doc_dir
-   ){
-
-   # Read dir and collection function names.
-      opendir( my $ls_doc_dir, $doc_dir) or die "Cannot read $doc_dir $!";
-      while ( my $next_file = readdir($ls_doc_dir) ){
-         
-         # Get function names from *.markdown files.
-         if ( $next_file =~ m/\A(.*?)\.markdown\Z/ ){
-            my $function_name = $1;
-            push @functions, $function_name;
-         }
-      }
-      closedir $ls_doc_dir;
-   }
-   else {
-      warn "Doc_dir [$doc_dir] is not readable, executable, ".
-         "or is not a directory";
-      return;
-   }
-
-   # Read each function file and get the function description.
-   for my $next_function ( @functions ) {
-
-      # Get file contents and skip reading if there's a problem.
-      my $file_name = $doc_dir."/".$next_function.".markdown";
-      open my $function_file, "<", $file_name or next;
-      my $file_contents = do { local $/; <$function_file> };
-      close $function_file;
-
-      # Now read contents at get description;
-      if ( $file_contents=~ m/
-         \Q**Description:**\E \s+ ([^\n]+)\n   # First description line.
-         ^\s*$       # Blank line
-         (.+?)       # Get next paragraph is it's not
-         (?:
-            (?: ^\s*$ ) # A blank line
-            |
-            (?: ^\*\* ) # Begins with **
-            |
-            (?: ^\[ )   # Beings with [
-         )
-         /msx 
-      ){
-         $function{$next_function}{description} = defined $2 ? $1." ".$2 : $1;
-         # remove trailing whitespace
-         $function{$next_function}{description} =~ s/\s+$//ms;
-         # replace newlines with a space 
-         $function{$next_function}{description} =~ s/\n/ /gms;
-
-         $function{$next_function}{url}
-            =$config_ref->{cf_docs_url}
-               ."/reference-functions-".$next_function.".html";
+# Count each keyword matching in msg
+   my %possible_keyword;
+   for my $next_word ( keys %topic_keyword_index ) {
+      
+      if ( $msg =~ m/\b$next_word\b/i ) {
+         $possible_keyword{$next_word}++;
       }
    }
-   return \%function;
+
+# Find the highest count of keyword matches and show related topics
+   my $topic = '';
+   my $previous_count = 0;
+   for my $next_word  ( keys %possible_keyword ) {
+
+      if ( $possible_keyword{$next_word} > $previous_count ) {
+         $topic = $next_word;
+      }
+      $previous_count = $possible_keyword{$next_word};
+   }
+
+   if ( $topic ne '' ) {
+      for my $next_topic ( @{ $topic_keyword_index{$topic} } ) {
+         push @replies, $topic_index{ $next_topic };
+      }
+   }
+
+   say $_ foreach  ( @replies );
+   return \@replies;
 }
 
 sub reply_with_function{
@@ -423,6 +500,7 @@ sub get_bug
    {
       my %responses = (
          200 => $url,
+         403 => $url. " Not authorized to read bug $bug_number",
          404 => "Bug [$bug_number] not found",
          500 => "Web server error from $url"
       );
@@ -572,24 +650,14 @@ my %irc_msg = (
          "!$config_ref->{irc}{nick}: function data_expand",
          "function data_expand",
          "the function data_expand",
-         "data_expand function"
+         "data_expand function",
+         "use the function regcmp",
       ],
       capture => qr/\A
          (?: data_expand \s+ function )
          |
-         (?: function \s+ data_expand )
+         (?: function \s+ data_expand|regcmp )
       \Z/msxi,
-   },
-   topic =>
-   {
-         regex => qr/$prefix topic \s+ (\w+) /ix,
-         input => [
-         "!$config_ref->{irc}{nick} topic efl",
-         "$config_ref->{irc}{nick}: topic efl",
-         "!$config_ref->{irc}{nick}: topic efl",
-         "!$config_ref->{irc}{nick}: topic delta",
-      ],
-      capture => qr/\A (efl|delta) \Z/ix,
    },
    wow =>
    {
@@ -623,12 +691,7 @@ sub _run_tests
       t02 =>
       {
          name => \&_test_topic_lookup,
-         arg  => [ 'Test' ],
-      },
-      t03 =>
-      {
-         name => \&_test_topic_not_found,
-         arg  => [ 'xxxxxxx' ],
+         arg  => [ 'Test topic' ],
       },
       t04 =>
       {
@@ -647,15 +710,20 @@ sub _run_tests
       },
       t07 =>
       {
-         name => \&_test_function_search,
+         name => \&_test_function_search_data_expand,
          arg  => [ 'function data_expand' ]
       },
       t08 =>
       {
+         name => \&_test_function_search_regcmp,
+         arg  => [ 'function regcmp' ]
+      },
+      t09 =>
+      {
          name => \&_test_cfengine_bug_atom_feed,
          arg => [{ 'feed' => "$config_ref->{bug_feed}" => "newer_than", 6000 }]
       },
-      t09 =>
+      t10 =>
       {
          name => \&_test_git_feed,
          arg => [{
@@ -663,16 +731,16 @@ sub _run_tests
             'repo' => 'core', 'newer_than' => '3000'
          }]
       },
-      t10 =>
+      t11 =>
       {
          name => \&_test_words_of_wisdom,
          arg => [ 'wow' ],
       },
-      t11 =>
+      t12 =>
       {
          name => \&_test_hush,
       },
-      t12 =>
+      t13 =>
       {
          name => \&_test_body_regex,
          arg => [ \%irc_msg ]
@@ -702,24 +770,11 @@ sub _test_doc_help
 sub _test_topic_lookup
 {
    my $keyword = shift;
-   my $topics = lookup_topics( $keyword );
+   my $topics = reply_with_topic( $keyword );
 
    is( $topics->[0],
-      "Test topic: This topic is for testing the cfbot. Do not remove.",
+      "This topic is for testing the cfbot. Do not remove.",
       "Testing a topic lookup"
-   );
-   return;
-}
-
-# Test topic lookup sub when topic is not found.
-sub _test_topic_not_found
-{
-   my $keyword = shift;
-   my $topics = lookup_topics( $keyword );
-
-   is( $topics->[0],
-      "Topic [$keyword] not found",
-      "Testing an uknown topic lookup"
    );
    return;
 }
@@ -757,11 +812,11 @@ sub _test_bug_number_invalid
 }
 
 # Test that function search returns a url and a description.
-sub _test_function_search
+sub _test_function_search_data_expand
 {
    my $keyword = shift;
    my $reply = reply_with_function( $keyword );
-   subtest 'Search CFEngine documentation' => sub
+   subtest "Search for function $keyword" => sub
    {
       ok( $reply =~
          m{
@@ -772,6 +827,24 @@ sub _test_function_search
       ok( $reply =~
          m/Transforms a data container to expand all variable references/,
          "Function summary"
+      );
+   };
+   return;
+}
+# Test that function search returns a url and a description.
+sub _test_function_search_regcmp
+{
+   my $keyword = shift;
+   my $reply = reply_with_function( $keyword );
+   subtest "Search functioin $keyword" => sub
+   {
+      ok( $reply =~
+         m{
+            URL \s+ $config_ref->{cf_docs_url}/reference-functions-\w+\.html
+         }mxsi,
+         "Function URL"
+      );
+      ok( $reply =~ m/Returns whether the/, "Function summary"
       );
    };
    return;
@@ -852,9 +925,9 @@ sub _test_body_regex
 # Main matter
 #
 
-# Load topics file
-my $topics_file = "$cli_arg_ref->{home}/topics";
-$topics = load_topics( file => $topics_file );
+# Index topics file
+my $topics_file = "$cli_arg_ref->{home}/topics.yml";
+index_topics( $topics_file );
 
 # Load words of wisdom
 my $wow_file = "$cli_arg_ref->{home}/words_of_wisdom";
@@ -1013,10 +1086,11 @@ sub said
          regex => $irc_msg{wow}{regex},
          run   => \&main::say_words_of_wisdom,
       },
+      # This must be last
       {
          name  => 'topic search',
-         regex => $irc_msg{topic}{regex},
-         run   => \&main::lookup_topics,
+         regex => qr/(.*)/,
+         run   => \&main::reply_with_topic,
       }
    );
 
