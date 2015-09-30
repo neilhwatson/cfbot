@@ -36,7 +36,6 @@ New in 3.7: new packages promises with pluggable backends.  See https://docs.cfe
 New in 3.7: YAML support, see readyaml() and parseyaml() and readdata().
 New in 3.7: readdata("filename", "auto|YAML|JSON|CSV") will use the file extension in auto mode.
 New in 3.7: CSV read into data container with readcsv()
-New in 3.7: list_ifelse() function to make a slist through if/else logic.
 New in 3.7: if (same as ifvarclass) and unless universal promise attributes.
 New in 3.7: @if macro to exclude a portion of text from parsing based on the CFEngine version.
 New in 3.7: data_expand() function to expand variable references in a data container.
