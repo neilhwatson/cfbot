@@ -11,6 +11,7 @@ use English;
 use Getopt::Long;
 use HTTP::Tiny;
 use JSON;
+use Cache::FastMmap;
 use Pod::Usage;
 use Test::More tests => 26;
 use Time::Piece;
@@ -20,11 +21,13 @@ use feature 'say';
 
 our $VERSION = 1.0;
 
-# TODO remove $topics
 my (
-   $topics, $words_of_wisdom, $wisdom_trigger_words, $cfe_function_ref,
+   $words_of_wisdom, $wisdom_trigger_words, $cfe_function_ref,
    %topic_index, %topic_keyword_index
 );
+
+# Data shared between parent and children.
+my $keyword_time = Cache::FastMmap->new;
 
 my $hush = 0;
 
@@ -188,20 +191,6 @@ sub _file_not_gw_writable {
    return 1;
 }
 
-# TODO remove?
-# Test for words that should not be searched for.
-sub _skip_words {
-   my $word = shift;
-   my @words = ( qw/
-      a an the and or e promise is function functions query that on key of
-      / );
-
-   warn "_skip_words arg = [$word]" if $cli_arg_ref->{debug};
-
-   for my $next_word ( @words ) { return 1 if $next_word eq lc($word) }
-   return 0;
-}
-
 # Load words of wisdom file into ram.
 sub load_words_of_wisdom {
    my %args = @_;
@@ -220,6 +209,29 @@ sub load_words_of_wisdom {
    return \@words_of_wisdom;
 }
 
+# Test if keyword has been recently checked. Used to prevent cfbot from
+# spamming the channel. Returns true if keyword has been used recently.
+sub recent_keyword {
+   my $keyword = shift;
+   $keyword = lc $keyword;
+
+   # If keyword was seen less than x minutes ago then do not lookup.
+   my $newer_than = 10;
+   my $now  = Time::Piece->gmtime();
+
+   my $last_reply = $keyword_time->get( $keyword );
+   if ( defined $last_reply ) {
+
+      # Test if too new to send another messege.
+      $newer_than = $now - $newer_than * 60;
+      return 1 if ( $last_reply > $newer_than );
+   }
+
+   # If not defined then start new time
+   $keyword_time->set( $keyword, $now );
+   return 0;
+}
+
 # Tests for new records from feeds.
 sub time_cmp {
    # Expects newer_than to be in minutes.
@@ -228,31 +240,16 @@ sub time_cmp {
    $arg->{time} =~ s/Z\Z//g;
    $arg->{time} = Time::Piece->strptime( $arg->{time}, "%Y-%m-%dT%H:%M:%S" );
 
+   if ( $arg->{newer_than} !~ m/\A\d+\Z/ ) {
+      warn "Newer_than arg expects a number";
+      return;
+   }
+
    my $now  = Time::Piece->gmtime();
    $arg->{newer_than} = $now - $arg->{newer_than} * 60;
 
    return 1 if ( $arg->{time} > $arg->{newer_than} );
    return;
-}
-
-# TODO remove
-# Load topics into ram.
-sub load_topics
-{
-   my %args = @_;
-   my %topics;
-
-   open( my $fh, '<', $args{file} ) or warn "Cannot open $args{file}, $!";
-
-   while (<$fh> )
-   {
-      chomp;
-      ( my ( $topic, $description ) ) = m/\A([^=]+)=(.*)\Z/;
-      $topics{$topic} = $description;
-   }
-   close $fh;
-
-   return \%topics;
 }
 
 # Make index for topics for given keywords
@@ -409,28 +406,9 @@ sub say_words_of_wisdom
    return $message
 }
 
-# TODO Remove
-# Search topics file for a given keyword.
-sub lookup_topics
-{
-   my $keyword = shift;
-
-   my @found;
-   for my $topic ( keys %{ $topics } )
-   {
-      push @found, "$topic: $topics->{$topic}" if ( $topic =~ m/$keyword/i )
-   }
-
-   push @found, "Topic [$keyword] not found" if ( scalar @found < 1 );
-
-   say $_ foreach ( @found );
-   return \@found;
-}
-
 # Search msg for keywords and return topics.
 sub reply_with_topic {
    my $msg = shift;
-   warn "my msg is [$msg]";
    my @replies;
 
 # Count each keyword matching in msg
@@ -447,7 +425,9 @@ sub reply_with_topic {
    my $previous_count = 0;
    for my $next_word  ( keys %possible_keyword ) {
 
-      if ( $possible_keyword{$next_word} > $previous_count ) {
+      # Exclude word if count is too low or if has been replied to recently.
+      if ( $possible_keyword{$next_word} > $previous_count
+            and ! recent_keyword( $next_word ) ){
          $topic = $next_word;
       }
       $previous_count = $possible_keyword{$next_word};
@@ -467,11 +447,12 @@ sub reply_with_function{
    my $message = shift;
    my $reply = '';
 
-   ( my @functions ) = $message =~ m/(\w*) \s* function \s* (\w*)/msx;
+   ( my @functions ) = $message =~ m/(\w*) \s* function \s* (\w*)/msxi;
 
    for my $next_function ( @functions ){
 
-      if ( exists $cfe_function_ref->{$next_function}{description} ) {
+      if ( exists $cfe_function_ref->{$next_function}{description} 
+         and ! recent_keyword( $next_function ) ) {
 
          $reply .= <<END_REPLY;
 FUNCTION $next_function
@@ -753,40 +734,42 @@ sub _run_tests
       $test{$next_test}->{name}->( @{ $test{$next_test}->{arg} } );
    }
 
-   done_testing();
+   #done_testing();
 
    return;
 }
 
 # Test help and usage.
-sub _test_doc_help
-{
+sub _test_doc_help {
    my $help = qx| $0 -? |;
    ok( $help =~ m/options:.+/mis,  "[$0] -h, for usage" );
    return;
 }
 
 # Test sub that looks up topics
-sub _test_topic_lookup
-{
+sub _test_topic_lookup {
    my $keyword = shift;
-   my $topics = reply_with_topic( $keyword );
 
-   is( $topics->[0],
-      "This topic is for testing the cfbot. Do not remove.",
-      "Testing a topic lookup"
-   );
+   subtest "Lookup topic and test for anti-spam" => sub {
+      my $topics = reply_with_topic( $keyword );
+      is( $topics->[0],
+         "This topic is for testing the cfbot. Do not remove.",
+         "Testing a topic lookup"
+      );
+      $topics = reply_with_topic( $keyword );
+         ok( ! defined $topics->[0],
+            "Does not return test topic the second time"
+         );
+   };
    return;
 }
 
 # Test that get_bug sub returns a bug entry.
-sub _test_bug_exists
-{
+sub _test_bug_exists {
    my $bug = shift;
    my $msg = get_bug( $bug );
 
-   subtest 'Lookup existing bug' => sub
-   {
+   subtest 'Lookup existing bug' => sub {
       ok( $msg->[0] =~ m|\A$config_ref->{bug_tracker}/$bug|, "URL correct?" );
       ok( $msg->[0] =~ m|Variables not expanded inside array\Z|, "Subject correct?" );
    };
@@ -794,8 +777,7 @@ sub _test_bug_exists
 }
 
 # Test that get_bug sub handle an unkown bug properly.
-sub _test_bug_not_found
-{
+sub _test_bug_not_found {
    my $bug = shift;
    my $msg = get_bug( $bug );
    is( $msg->[0], "Bug [$bug] not found", "Bug not found" );
@@ -803,8 +785,7 @@ sub _test_bug_not_found
 }
 
 # Test that get_bug sub handles an invalid bug number.
-sub _test_bug_number_invalid
-{
+sub _test_bug_number_invalid {
    my $bug = shift;
    my $msg = get_bug( $bug );
    is( $msg->[0], "[$bug] is not a valid bug number", "Bug number invalid" );
@@ -812,12 +793,10 @@ sub _test_bug_number_invalid
 }
 
 # Test that function search returns a url and a description.
-sub _test_function_search_data_expand
-{
+sub _test_function_search_data_expand {
    my $keyword = shift;
-   my $reply = reply_with_function( $keyword );
-   subtest "Search for function $keyword" => sub
-   {
+   subtest "Search for function $keyword and for anti-spam" => sub {
+      my $reply = reply_with_function( $keyword );
       ok( $reply =~
          m{
             URL \s+ $config_ref->{cf_docs_url}/reference-functions-\w+\.html
@@ -828,16 +807,18 @@ sub _test_function_search_data_expand
          m/Transforms a data container to expand all variable references/,
          "Function summary"
       );
+
+      # Now test anti-spam
+      $reply = reply_with_function( $keyword );
+      is( $reply, '', "Does not return function a second time" );
    };
    return;
 }
 # Test that function search returns a url and a description.
-sub _test_function_search_regcmp
-{
+sub _test_function_search_regcmp {
    my $keyword = shift;
    my $reply = reply_with_function( $keyword );
-   subtest "Search functioin $keyword" => sub
-   {
+   subtest "Search functioin $keyword" => sub {
       ok( $reply =~
          m{
             URL \s+ $config_ref->{cf_docs_url}/reference-functions-\w+\.html
@@ -851,8 +832,7 @@ sub _test_function_search_regcmp
 }
 
 # Test that bug feed returns at least one correct entry.
-sub _test_cfengine_bug_atom_feed
-{
+sub _test_cfengine_bug_atom_feed {
    my ( $arg ) = @_;
    my $events = atom_feed( $arg );
    # e.g. Feature #7346 (Open): string_replace function
@@ -864,8 +844,7 @@ sub _test_cfengine_bug_atom_feed
 }
 
 # Test that git feed returns at least one correct entry.
-sub _test_git_feed
-{
+sub _test_git_feed {
    my ( $arg ) = @_;
    my $events = git_feed( $arg );
    ok( $events->[0] =~ m/\APull|Push/, 'Did an event return?' );
@@ -873,8 +852,7 @@ sub _test_git_feed
 }
 
 # Test that words of wisdom returns a string.
-sub _test_words_of_wisdom
-{
+sub _test_words_of_wisdom {
    my $random = shift;
    my $wow = say_words_of_wisdom( $random );
    ok( $wow =~ m/\w+/, 'Is a string returned?' );
@@ -882,11 +860,9 @@ sub _test_words_of_wisdom
 }
 
 # Test hushing function
-sub _test_hush
-{
+sub _test_hush {
    my $msg = hush();
-   subtest 'hushing' => sub
-   {
+   subtest 'hushing' => sub {
       ok( $msg =~ m/\S+/, "Hush returns a message" );
       ok( $hush, '$hush is now true' );
    };
@@ -894,17 +870,12 @@ sub _test_hush
 }
 
 # Test regexes used to trigger events from messages in the channel.
-sub _test_body_regex
-{
+sub _test_body_regex {
    my $irc_msg = shift;
 
-   for my $next_msg ( sort keys %{ $irc_msg } )
-   {
-      for my $next_input ( @{ $irc_msg{$next_msg}->{input} } )
-      {
-         subtest 'Testing body matching regexes' => sub
-         {
-
+   for my $next_msg ( sort keys %{ $irc_msg } ) {
+      for my $next_input ( @{ $irc_msg{$next_msg}->{input} } ) {
+         subtest 'Testing body matching regexes' => sub {
             # Debugging
             if ( $cli_arg_ref->{debug} ) {
                warn "Testing [$next_input] =~ $irc_msg{$next_msg}->{regex}";
@@ -1097,8 +1068,7 @@ sub said
    my $arg = 'undef';
 
    # Process each irc msg agains dispatch table
-   for my $next_dispatch ( @dispatch )
-   {
+   DISPATCH: for my $next_dispatch ( @dispatch ) {
       # Debugging
       if ( $cli_arg_ref->{debug} ) {
          warn "Checking dispatch $next_dispatch->{name}";
@@ -1106,11 +1076,9 @@ sub said
       }
 
       # If irc msg matches one in the dispatch table
-      if ( $msg->{raw_body} =~ $next_dispatch->{regex} )
-      {
+      if ( $msg->{raw_body} =~ $next_dispatch->{regex} ) {
          # Keep captured text from the irc msg
-         if ( defined $LAST_PAREN_MATCH )
-         {
+         if ( defined $LAST_PAREN_MATCH ) {
             $arg = $LAST_PAREN_MATCH;
 
             # Debugging
@@ -1124,7 +1092,7 @@ sub said
                arguments => [ $arg ],
                channel   => $config_ref->{irc}{channels}[0],
             });
-            last;
+            last DISPATCH;
          }
       }
    }
@@ -1274,7 +1242,7 @@ sub help
 {
    my $self = shift;
    $self->forkit({
-      run       => \&main::lookup_topics,
+      run       => \&main::reply_with_topic ,
       arguments => [ 'help' ],
       channel   => $config_ref->{irc}{channels}[0],
    });
