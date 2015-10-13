@@ -148,3 +148,7 @@
 - keywords:
    - Autorun
   topic: Use CFEngine's mastefiles autorun policy to make cf-agent automatically run policies in certain directories. See https://digitalelf.net/2014/07/a-primer-on-cfengine-3-dot-6-autorun/ and a working example: https://github.com/evolvethinking/evolve_cfengine_freelib/blob/master/INSTALL.md and https://github.com/evolvethinking/evolve_cfengine_freelib/blob/master/masterfiles/services/autorun/efl.cf
+
+- keywords:
+   - testing
+  topic: Ideas for testing your CFEngine policy: http://evolvethinking.com/category/software-testing/
