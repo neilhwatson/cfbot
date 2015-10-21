@@ -40,3 +40,4 @@ New in 3.7: if (same as ifvarclass) and unless universal promise attributes.
 New in 3.7: @if macro to exclude a portion of text from parsing based on the CFEngine version.
 New in 3.7: data_expand() function to expand variable references in a data container.
 New in 3.7: def.json to make changing the defaults really easy.
+Watch Mark Burgesses CFEngine in a day training https://www.youtube.com/watch?v=zviHfjKz1nM
