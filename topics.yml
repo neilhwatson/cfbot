@@ -1,5 +1,9 @@
 ---
 - keywords:
+   - help
+  topic: Using Cfbot: Function lookup: <name> function or function <name>. Help for help. #nnnn or bug #nnnn for bug number. Say any key word and cfbot will answer if it knows something about that word. Contribute: https://github.com/neilhwatson/cfbot.
+
+- keywords:
    - emacs
    - cfengine_el
    - policy editor
