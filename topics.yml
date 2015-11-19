@@ -157,3 +157,8 @@
    - testing
   topic: Ideas for testing your CFEngine policy: http://evolvethinking.com/category/software-testing/, http://syslog.me/2014/08/30/test-dummies-on-sale/, https://github.com/nmische/kitchen-cfengine/
 
+- keywords:
+   - pcre
+   - regular expression
+   - regex
+  topic: CFEngine uses PCRE flavoured regular expressions. Here's a cheatsheet: http://evolvethinking.com/pcre-cheatsheet/ and here's an example of good regex style in CFEngine: http://evolvethinking.com/build-better-regular-expressions-in-cfengine/
