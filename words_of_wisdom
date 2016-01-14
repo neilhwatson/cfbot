@@ -26,7 +26,7 @@ CFEngine Enterprise is free up to 25 hosts.
 Idempotence and convergence are the two fundamental CFEngine promise properties.
 CFEngine is built on the foundation of promise theory.
 Promise syntax: "promiser string" -> "optional promisee" attribute1 => "value1", attribute2 => "value2", ...;
-The ifvarclass/if/unless, comment, handle, and meta promise attributes are universal and can apply to any promise.
+These promise attributes are universal and can apply to any promise: `ifvarclass` `if` `unless` `comment` `handle` `meta`
 New in 3.7: "mycontainer" data => '{ ... JSON data ... }'; # no need for parsejson()
 New in 3.7: string_mustache() to create a string from a Mustache template.
 New in 3.7: in Mustache templates, {{@}} is the iteration key.
@@ -41,3 +41,14 @@ New in 3.7: @if macro to exclude a portion of text from parsing based on the CFE
 New in 3.7: data_expand() function to expand variable references in a data container.
 New in 3.7: def.json to make changing the defaults really easy.
 Watch Mark Burgesses CFEngine in a day training https://www.youtube.com/watch?v=zviHfjKz1nM
+New in 3.8: body inheritance https://docs.cfengine.com/docs/3.8/reference-promise-types.html#inherit_from
+New in 3.8: HTTP GET/POST/PUT support in url_get() function https://docs.cfengine.com/docs/3.8/reference-functions-url_get.html
+New in 3.8: @if feature syntax to include policy based on whether a feature was compiled in https://docs.cfengine.com/docs/3.8/reference-macros.html#features
+New in 3.8: module protocol allows class persistence `^persistence=<minutes>` https://docs.cfengine.com/docs/3.8/reference-promise-types-commands.html#module
+New in 3.8: stdlib has simpler, easier results classes body https://docs.cfengine.com/docs/3.8/reference-standard-library-common.html#results
+New in 3.8: stage your masterfiles from Git or Subversion with https://github.com/cfengine/core/tree/master/contrib/masterfiles-stage
+New in 3.8: class expressions can separate with spaces: `linux . Friday` https://docs.cfengine.com/docs/3.8/reference-language-concepts-classes.html#operators-and-precedence
+New in 3.8: def.json parsed in C, **before** any policy evaluation
+Changed in 3.8: `sys.libdir` and `sys.local_libdir` no longer include the version, because @if is now available
+Changed in 3.8 and 3.7.2: cf-agent, cf-execd, cf-promises, cf-runagent and cf-serverd honor multiple -D, -N and -s arguments
+Changed in 3.8: the JSON parser now supports unquoted strings as keys e.g. { mykey: 123 }
