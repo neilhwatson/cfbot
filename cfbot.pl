@@ -1018,6 +1018,7 @@ package Cfbot;
 use base 'Bot::BasicBot'; 
 use English;
 use Data::Dumper;
+use POE::Session;
 use POE::Kernel;
 
 # Subs in this package override Bot::BasicBot's own subs.
@@ -1226,15 +1227,29 @@ sub tick
       },
    );
 
+   # TODO put these as 'notice'
    for my $e ( @events )
    {
       $self->forkit({
          run       => $e->{name},
          arguments => $e->{arg},
          channel   => $config_ref->{irc}{channels}[0],
+         handler   => '_fork_notice',
       });
    }
    return $wake_interval{seconds};
+}
+
+sub _fork_notice {
+    my ($self, $body, $wheel_id) = @_[OBJECT, ARG0, ARG1];
+    chomp $body;    # remove newline necessary to move data;
+
+    # pick up the default arguments we squirreled away earlier
+    my $args = $self->{forks}{$wheel_id}{args};
+    $args->{body} = $body;
+
+    $self->notice($args);
+    return;
 }
 
 # When someone says help to the bot this sub is run
