@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+package cfbot;
+
 use strict;
 use warnings;
 use Carp;
@@ -13,7 +15,7 @@ use HTTP::Tiny;
 use JSON;
 use Cache::FastMmap;
 use Pod::Usage;
-use Test::More tests => 26;
+use Test::More; 
 use Time::Piece;
 use Web::Query;
 use XML::Feed;
@@ -23,11 +25,14 @@ our $VERSION = 1.0;
 
 my (
    $words_of_wisdom, $wisdom_trigger_words, $cfe_function_ref,
-   %topic_index, %topic_keyword_index
+   %topic_index, $topic_keyword_index,
 );
 
 # Data shared between parent and children.
 my $keyword_time = Cache::FastMmap->new;
+
+# Words of wisdom trigger words
+$wisdom_trigger_words = 'wow|wisdom|speak|talk|words\s+of\s+wisdom';
 
 my $hush = 0;
 
@@ -37,19 +42,27 @@ my $hush = 0;
 my $cli_arg_ref = _get_cli_args();
 
 # Load config file
-my $config_ref = Config::YAML->new( config => "$cli_arg_ref->{config}" );
+my $config = _load_config( $cli_arg_ref->{config} );
 
 if ( $cli_arg_ref->{debug} )
 {
-   $config_ref->{irc}{channels}[0] = '#bottest';
-   $config_ref->{irc}{nick}        = 'cfbot_test';
-   $config_ref->{wake_interval}    = 5;
-   $config_ref->{newer_than}       = 1440;
+   $config->{irc}{channels}[0] = '#bottest';
+   $config->{irc}{nick}        = 'cfbot_test';
+   $config->{wake_interval}    = 5;
+   $config->{newer_than}       = 1440;
 }
 
 #
 # Support subs that you probably will not use.
 #
+
+sub _load_config{
+   my $file = shift;
+   croak "[$file] does not exist" if ( ! -e $file );
+
+   return Config::YAML->new(
+      config => "$cli_arg_ref->{config}" );
+}
 
 # Process command line args.
 sub _get_cli_args
@@ -191,24 +204,6 @@ sub _file_not_gw_writable {
    return 1;
 }
 
-# Load words of wisdom file into ram.
-sub load_words_of_wisdom {
-   my %args = @_;
-   my @words_of_wisdom;
-
-   open( my $fh, '<', $args{file} ) or warn "Cannot open $args{file}, $!";
-
-   while (<$fh> )
-   {
-      next if m/\A\s*#/;
-      chomp;
-      push @words_of_wisdom, $_;
-   }
-   close $fh;
-
-   return \@words_of_wisdom;
-}
-
 # Test if keyword has been recently checked. Used to prevent cfbot from
 # spamming the channel. Returns true if keyword has been used recently.
 sub recent_keyword {
@@ -255,9 +250,10 @@ sub time_cmp {
 # Make index for topics for given keywords
 sub index_topics {
    my $topics_file = shift;
+   my %keyword_index;
 
    unless ( -f $topics_file and -r $topics_file  ) {
-      warn "$topics_file is not readable or plain";
+      carp "$topics_file is not readable or plain";
       return;
    }
 
@@ -274,10 +270,11 @@ sub index_topics {
       for my $next_keyword ( @{ $next_topic->{keywords} } ) {
 
             # Store keyworkd in index.
-            push @{ $topic_keyword_index{$next_keyword} }, $i;
+            push @{ $keyword_index{$next_keyword} }, $i;
       }
       $i++;
    }
+   return \%keyword_index;
 }
 
 # Searched CFEngine function documentation for a given keyword.
@@ -352,11 +349,62 @@ sub index_cfe_functions {
          $function{$next_function}{description} =~ s/\n/ /gms;
 
          $function{$next_function}{url}
-            =$config_ref->{cf_docs_url}
+            =$config->{cf_docs_url}
                ."/reference-functions-".$next_function.".html";
       }
    }
    return \%function;
+}
+
+# regex data for IRC message matching. We store the data here so that it can be
+# tested and also use it in the bot's sub said dispatch table.
+sub _get_msg_regexes {
+   # TODO config var not available?
+   my $prefix = qr/$config->{irc}{nick}:?\s+/i;
+   my %irc_msg = (
+      bug =>
+      {
+         regex => qr/(?:bug\s+ | \#) (\d{4,5}) /xi,
+         input => [
+            'bug 2333',
+            "!$config->{irc}{nick} bug 2333",
+            "$config->{irc}{nick}: bug 2333",
+            "!$config->{irc}{nick}: bug 2333",
+            "#2333",
+         ],
+         capture => qr/\A2333\Z/,
+      },
+      function =>
+      {
+         regex => qr/(\w* \s* function \s* \w*)/xmsi,
+         input  => [
+            "!$config->{irc}{nick}: function data_expand",
+            "function data_expand",
+            "the function data_expand",
+            "data_expand function",
+            "use the function regcmp",
+         ],
+         capture => qr/\A
+            (?: data_expand \s+ function )
+            |
+            (?: function \s+ data_expand|regcmp )
+         \Z/msxi,
+      },
+      wow =>
+      {
+         regex => qr/$prefix ($wisdom_trigger_words) /ix, 
+         input => [
+            "$config->{irc}{nick} wow",
+            "$config->{irc}{nick} wisdom",
+            "$config->{irc}{nick} speak",
+            "$config->{irc}{nick} talk",
+            "$config->{irc}{nick} words of wisdom",
+         ],
+         capture => qr/$wisdom_trigger_words/i,
+      },
+   );
+
+   return \%irc_msg;
 }
 
 #
@@ -379,9 +427,32 @@ sub hush
    srand();
    my $response = $responses[ rand @responses ];
 
-   $hush = Time::Piece->localtime() + $config_ref->{hush_time} * 60;
+   $hush = Time::Piece->localtime() + $config->{hush_time} * 60;
    say $response;
    return $response;
+}
+
+# Used for testing the hush flag variable
+sub _get_hush{
+   return $hush;
+}
+
+# Load words of wisdom file into ram.
+sub load_words_of_wisdom {
+   my %args = @_;
+   my @words_of_wisdom;
+
+   open( my $fh, '<', $args{file} ) or warn "Cannot open $args{file}, $!";
+
+   while (<$fh> )
+   {
+      next if m/\A\s*#/;
+      chomp;
+      push @words_of_wisdom, $_;
+   }
+   close $fh;
+
+   return \@words_of_wisdom;
 }
 
 # Calls a words of wisdom entry
@@ -392,6 +463,12 @@ sub say_words_of_wisdom
    my $message  = q{};
 
    warn "wow arg_word = [$arg_word]" if $cli_arg_ref->{debug};
+
+   # Load words of wisdom
+   if ( ! $words_of_wisdom ){
+      my $wow_file = "$cli_arg_ref->{home}/words_of_wisdom";
+      $words_of_wisdom = load_words_of_wisdom( file => $wow_file );
+   }
 
    srand;
    my $dice_size = 10;
@@ -411,16 +488,22 @@ sub reply_with_topic {
    my $msg = shift;
    my @replies;
 
-# Count each keyword matching in msg
+   # Build topic keyword index if required.
+   if ( ! $topic_keyword_index ){
+      my $topics_file = "$cli_arg_ref->{home}/topics.yml";
+      $topic_keyword_index = index_topics( $topics_file );
+   }
+
+   # Count each keyword matching in msg
    my %possible_keyword;
-   for my $next_word ( keys %topic_keyword_index ) {
+   for my $next_word ( keys %{ $topic_keyword_index } ) {
       
       if ( $msg =~ m/\b$next_word\b/i ) {
          $possible_keyword{$next_word}++;
       }
    }
 
-# Find the highest count of keyword matches and show related topics
+   # Find the highest count of keyword matches and show related topics
    my $topic = '';
    my $previous_count = 0;
    for my $next_word  ( keys %possible_keyword ) {
@@ -434,7 +517,7 @@ sub reply_with_topic {
    }
 
    if ( $topic ne '' ) {
-      for my $next_topic ( @{ $topic_keyword_index{$topic} } ) {
+      for my $next_topic ( @{ $topic_keyword_index->{$topic} } ) {
          push @replies, $topic_index{ $next_topic };
       }
    }
@@ -446,6 +529,13 @@ sub reply_with_topic {
 sub reply_with_function{
    my $message = shift;
    my $reply = '';
+
+   # Build index of cfe functions if required.
+   if ( ! $cfe_function_ref ){
+      $cfe_function_ref = index_cfe_functions({
+         dir => "$cli_arg_ref->{docs_repo}/reference/functions"
+      });
+   }
 
    ( my @functions ) = $message =~ m/(\w*) \s* function \s* (\w*)/msxi;
 
@@ -471,7 +561,7 @@ sub get_bug
    my $bug_number = shift;
    my @return;
    my $message = "Unexpected error in retreiving bug $bug_number";
-   my $url = "$config_ref->{bug_tracker}/$bug_number";
+   my $url = "$config->{bug_tracker}/$bug_number";
 
    unless ( $bug_number =~ m/\A\d{1,6}\Z/ )
    {
@@ -487,7 +577,7 @@ sub get_bug
       );
 
       my $client = HTTP::Tiny->new();
-      my $response = $client->get( "$config_ref->{bug_tracker}/$bug_number" );
+      my $response = $client->get( "$config->{bug_tracker}/$bug_number" );
       for my $key (keys %responses)
       {
          $message = $responses{$key} if $response->{status} == $key;
@@ -510,7 +600,7 @@ sub git_feed {
    my ( $arg ) = @_;
    # Set defaults
    #                If option given              Use option            Else default
-   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $config_ref->{newer_than};
+   my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $config->{newer_than};
    my $owner      = $arg->{owner};
    my $repo       = $arg->{repo};
    my $feed       = $arg->{feed};
@@ -533,45 +623,39 @@ sub git_feed {
          $msg = "Push in $owner:$repo by $e->{actor}{login}, $message..., ".
             "https://github.com/$owner/$repo/commit/$e->{payload}{head}";
       }
-      elsif ( $e->{type} eq 'PullRequestEvent' )
-      {
+      elsif ( $e->{type} eq 'PullRequestEvent' ) {
          $msg = "Pull request $e->{payload}{action} in $owner:$repo ".
             "by $e->{payload}{pull_request}{user}{login}, ".
             "$e->{payload}{pull_request}{title}, ".
             "$e->{payload}{pull_request}{html_url}";
       }
-      elsif ( $e->{type} eq 'IssuesEvent' )
-      {
+      elsif ( $e->{type} eq 'IssuesEvent' ) {
          $msg = "Issue in $owner:$repo $e->{payload}{action} ".
             "by $e->{payload}{issue}{user}{login}, $e->{payload}{issue}{title}, ".
             "$e->{payload}{issue}{html_url}";
       }
 
-      if ( $msg )
-      {
+      if ( $msg ) {
          push @events, $msg;
          say $msg;
       }
    }
 
-   if ( scalar @events > 0 )
-   {
+   if ( scalar @events > 0 ) {
       return \@events;
    }
-   else
-   {
+   else {
       return 0;
    }
    return;
 }
 
 # Returns recent events from a Redmine atom feed.
-sub atom_feed
-{
+sub atom_feed {
    my ( $arg ) = @_;
    # Set defaults
    my $newer_than = exists $arg->{newer_than}
-      ? $arg->{newer_than} : $config_ref->{newer_than};
+      ? $arg->{newer_than} : $config->{newer_than};
    my $feed       = $arg->{feed};
    my @events;
 
@@ -581,8 +665,7 @@ sub atom_feed
    my $xml = XML::Feed->parse( URI->new( $feed )) or
       die "Feed error with [$feed] ".XML::Feed->errstr;
 
-   for my $e ( $xml->entries )
-   {
+   for my $e ( $xml->entries ) {
       if ( $e->title =~ m/\A\w+ # Start with any word
          \s+
          \#\d{4,5} # bug number
@@ -592,8 +675,7 @@ sub atom_feed
 
          and
 
-         time_cmp({ time => $e->updated, newer_than => $newer_than }) )
-      {
+         time_cmp({ time => $e->updated, newer_than => $newer_than }) ) {
          push @events, $e->title .", ". $e->link;
       }
    }
@@ -602,317 +684,15 @@ sub atom_feed
 }
 
 #
-# TESTING
-# New features should have tests to be run with the test suite.
+# Main matter. Runs as modulino to allow separate testing.
 #
 
-# regex data for IRC message matching. We store the data here so that it can be
-# tested and also use it in the bot's sub said dispatch table.
-# Words of wisdom trigger words
-$wisdom_trigger_words = 'wow|wisdom|speak|talk|words\s+of\s+wisdom';
-my $prefix = qr/$config_ref->{irc}{nick}:?\s+/i;
-my %irc_msg = (
-   bug =>
-   {
-      regex => qr/(?:bug\s+ | \#) (\d{4,5}) /xi,
-      input => [
-         'bug 2333',
-         "!$config_ref->{irc}{nick} bug 2333",
-         "$config_ref->{irc}{nick}: bug 2333",
-         "!$config_ref->{irc}{nick}: bug 2333",
-         "#2333",
-      ],
-      capture => qr/\A2333\Z/,
-   },
-   function =>
-   {
-      regex => qr/(\w* \s* function \s* \w*)/xmsi,
-      input  => [
-         "!$config_ref->{irc}{nick}: function data_expand",
-         "function data_expand",
-         "the function data_expand",
-         "data_expand function",
-         "use the function regcmp",
-      ],
-      capture => qr/\A
-         (?: data_expand \s+ function )
-         |
-         (?: function \s+ data_expand|regcmp )
-      \Z/msxi,
-   },
-   wow =>
-   {
-      regex => qr/$prefix ($wisdom_trigger_words) /ix, 
-      input => [
-         "$config_ref->{irc}{nick} wow",
-         "$config_ref->{irc}{nick} wisdom",
-         "$config_ref->{irc}{nick} speak",
-         "$config_ref->{irc}{nick} talk",
-         "$config_ref->{irc}{nick} words of wisdom",
-      ],
-      capture => qr/$wisdom_trigger_words/i,
-   },
-);
-
-#
-# TESTING SUBS
-#
-
-# Calls testing subs via a dispatch table.
-sub _run_tests
-{
-   # Test suite dispatch table.
-   # Name your tests 't\d\d' to ensure order
-   my %test = (
-      t01 =>
-      {
-         name => \&_test_doc_help,
-         arg  => [ '' ],
-      },
-      t02 =>
-      {
-         name => \&_test_topic_lookup,
-         arg  => [ 'Test topic' ],
-      },
-      t04 =>
-      {
-         name => \&_test_bug_exists,
-         arg  => [ '2333' ],
-      },
-      t05 =>
-      {
-         name => \&_test_bug_not_found,
-         arg  => [ '999999' ],
-      },
-      t06 =>
-      {
-         name => \&_test_bug_number_invalid,
-         arg  => [ 'xxxxx' ]
-      },
-      t07 =>
-      {
-         name => \&_test_function_search_data_expand,
-         arg  => [ 'function data_expand' ]
-      },
-      t08 =>
-      {
-         name => \&_test_function_search_regcmp,
-         arg  => [ 'function regcmp' ]
-      },
-      t09 =>
-      {
-         name => \&_test_cfengine_bug_atom_feed,
-         arg => [{ 'feed' => "$config_ref->{bug_feed}" => "newer_than", 6000 }]
-      },
-      t10 =>
-      {
-         name => \&_test_git_feed,
-         arg => [{
-            'feed' => $config_ref->{git_feed}, 'owner' => 'cfengine',
-            'repo' => 'core', 'newer_than' => '3000'
-         }]
-      },
-      t11 =>
-      {
-         name => \&_test_words_of_wisdom,
-         arg => [ 'wow' ],
-      },
-      t12 =>
-      {
-         name => \&_test_hush,
-      },
-      t13 =>
-      {
-         name => \&_test_body_regex,
-         arg => [ \%irc_msg ]
-      },
-   );
-
-   # Run tests in order
-   for my $next_test ( sort keys %test )
-   {
-      $test{$next_test}->{name}->( @{ $test{$next_test}->{arg} } );
-   }
-
-   #done_testing();
-
-   return;
+sub run{
+   my $bot = Cfbot->new( %{ $config->{irc} } )->run;
 }
-
-# Test help and usage.
-sub _test_doc_help {
-   my $help = qx| $0 -? |;
-   ok( $help =~ m/options:.+/mis,  "[$0] -h, for usage" );
-   return;
-}
-
-# Test sub that looks up topics
-sub _test_topic_lookup {
-   my $keyword = shift;
-
-   subtest "Lookup topic and test for anti-spam" => sub {
-      my $topics = reply_with_topic( $keyword );
-      is( $topics->[0],
-         "This topic is for testing the cfbot. Do not remove.",
-         "Testing a topic lookup"
-      );
-      $topics = reply_with_topic( $keyword );
-         ok( ! defined $topics->[0],
-            "Does not return test topic the second time"
-         );
-   };
-   return;
-}
-
-# Test that get_bug sub returns a bug entry.
-sub _test_bug_exists {
-   my $bug = shift;
-   my $msg = get_bug( $bug );
-
-   subtest 'Lookup existing bug' => sub {
-      ok( $msg->[0] =~ m|\A$config_ref->{bug_tracker}/$bug|, "URL correct?" );
-      ok( $msg->[0] =~ m|Variables not expanded inside array\Z|, "Subject correct?" );
-   };
-   return;
-}
-
-# Test that get_bug sub handle an unkown bug properly.
-sub _test_bug_not_found {
-   my $bug = shift;
-   my $msg = get_bug( $bug );
-   is( $msg->[0], "Bug [$bug] not found", "Bug not found" );
-   return;
-}
-
-# Test that get_bug sub handles an invalid bug number.
-sub _test_bug_number_invalid {
-   my $bug = shift;
-   my $msg = get_bug( $bug );
-   is( $msg->[0], "[$bug] is not a valid bug number", "Bug number invalid" );
-   return;
-}
-
-# Test that function search returns a url and a description.
-sub _test_function_search_data_expand {
-   my $keyword = shift;
-   subtest "Search for function $keyword and for anti-spam" => sub {
-      my $reply = reply_with_function( $keyword );
-      ok( $reply =~
-         m{
-            URL \s+ $config_ref->{cf_docs_url}/reference-functions-\w+\.html
-         }mxsi,
-         "Function URL"
-      );
-      ok( $reply =~
-         m/Transforms a data container to expand all variable references/,
-         "Function summary"
-      );
-
-      # Now test anti-spam
-      $reply = reply_with_function( $keyword );
-      is( $reply, '', "Does not return function a second time" );
-   };
-   return;
-}
-# Test that function search returns a url and a description.
-sub _test_function_search_regcmp {
-   my $keyword = shift;
-   my $reply = reply_with_function( $keyword );
-   subtest "Search functioin $keyword" => sub {
-      ok( $reply =~
-         m{
-            URL \s+ $config_ref->{cf_docs_url}/reference-functions-\w+\.html
-         }mxsi,
-         "Function URL"
-      );
-      ok( $reply =~ m/Returns whether the/, "Function summary"
-      );
-   };
-   return;
-}
-
-# Test that bug feed returns at least one correct entry.
-sub _test_cfengine_bug_atom_feed {
-   my ( $arg ) = @_;
-   my $events = atom_feed( $arg );
-   # e.g. Feature #7346 (Open): string_replace function
-   warn $events->[0].
-      ' =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i' if $cli_arg_ref->{debug};
-   ok( $events->[0] =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i,
-      "Was a bug returned?" );
-   return;
-}
-
-# Test that git feed returns at least one correct entry.
-sub _test_git_feed {
-   my ( $arg ) = @_;
-   my $events = git_feed( $arg );
-   ok( $events->[0] =~ m/\APull|Push/, 'Did an event return?' );
-   return;
-}
-
-# Test that words of wisdom returns a string.
-sub _test_words_of_wisdom {
-   my $random = shift;
-   my $wow = say_words_of_wisdom( $random );
-   ok( $wow =~ m/\w+/, 'Is a string returned?' );
-   return;
-}
-
-# Test hushing function
-sub _test_hush {
-   my $msg = hush();
-   subtest 'hushing' => sub {
-      ok( $msg =~ m/\S+/, "Hush returns a message" );
-      ok( $hush, '$hush is now true' );
-   };
-   return;
-}
-
-# Test regexes used to trigger events from messages in the channel.
-sub _test_body_regex {
-   my $irc_msg = shift;
-
-   for my $next_msg ( sort keys %{ $irc_msg } ) {
-      for my $next_input ( @{ $irc_msg{$next_msg}->{input} } ) {
-         subtest 'Testing body matching regexes' => sub {
-            # Debugging
-            if ( $cli_arg_ref->{debug} ) {
-               warn "Testing [$next_input] =~ $irc_msg{$next_msg}->{regex}";
-            }
-
-            ok( $next_input =~ $irc_msg{$next_msg}->{regex}
-               , "Does regex match message body?" );
-            warn" ok( $LAST_PAREN_MATCH =~ $irc_msg{$next_msg}->{capture}";
-            ok( $LAST_PAREN_MATCH =~ $irc_msg{$next_msg}->{capture}
-               , "Is the correct string captured?" );
-         }
-      }
-   }
-   return;
-}
-
-#
-# Main matter
-#
-
-# Index topics file
-my $topics_file = "$cli_arg_ref->{home}/topics.yml";
-index_topics( $topics_file );
-
-# Load words of wisdom
-my $wow_file = "$cli_arg_ref->{home}/words_of_wisdom";
-$words_of_wisdom = load_words_of_wisdom( file => $wow_file );
-
-# Build index of cfe functions
-$cfe_function_ref = index_cfe_functions({
-   dir => "$cli_arg_ref->{docs_repo}/reference/functions"
-});
-
-if ( $cli_arg_ref->{test} ) { _run_tests(); exit }
 
 # Start the bot
-my $bot = Cfbot->new( %{ $config_ref->{irc} } )->run;
+run() unless caller;
 
 #
 # Main POD
@@ -1010,6 +790,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
+1;
+
 #
 # Packages
 #
@@ -1029,6 +811,7 @@ sub said
    my $self = shift;
    my $msg = shift;
    my $replies;
+   my $irc_regex = main::_get_msg_regexes();
 
    my $now = Time::Piece->localtime();
 
@@ -1045,17 +828,17 @@ sub said
    my @dispatch = (
       {
          name  => 'bug match',
-         regex => $irc_msg{bug}{regex},
+         regex => $irc_msg->{bug}{regex},
          run   => \&main::get_bug,
       },
       {
          name  => 'function search',
-         regex => $irc_msg{function}{regex},
+         regex => $irc_msg->{function}{regex},
          run   => \&main::reply_with_function,
       },
       {
          name  => 'wow',
-         regex => $irc_msg{wow}{regex},
+         regex => $irc_msg->{wow}{regex},
          run   => \&main::say_words_of_wisdom,
       },
       # This must be last
@@ -1091,7 +874,7 @@ sub said
             $self->forkit({
                run       => $next_dispatch->{run},
                arguments => [ $arg ],
-               channel   => $config_ref->{irc}{channels}[0],
+               channel   => $config->{irc}{channels}[0],
             });
             last DISPATCH;
          }
@@ -1159,7 +942,7 @@ sub tick
 {
    my $self=shift;
    my %wake_interval;
-   $wake_interval{seconds} = $config_ref->{wake_interval} * 60;
+   $wake_interval{seconds} = $config->{wake_interval} * 60;
    
    my $now = Time::Piece->localtime();
    return 60 if ( $now < $hush );
@@ -1167,12 +950,12 @@ sub tick
    my @events = (
       {
          name => \&main::atom_feed,
-         arg  => [{ 'feed' => "$config_ref->{bug_feed}" }]
+         arg  => [{ 'feed' => "$config->{bug_feed}" }]
       },
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $config_ref->{git_feed},
+            'feed'  => $config->{git_feed},
             'owner' => 'cfengine',
             'repo'  => 'core',
          }]
@@ -1180,7 +963,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $config_ref->{git_feed},
+            'feed'  => $config->{git_feed},
             'owner' => 'cfengine',
             'repo'  => 'masterfiles',
          }]
@@ -1188,7 +971,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $config_ref->{git_feed},
+            'feed'  => $config->{git_feed},
             'owner' => 'evolvethinking',
             'repo'  => 'evolve_cfengine_freelib',
          }]
@@ -1196,7 +979,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $config_ref->{git_feed},
+            'feed'  => $config->{git_feed},
             'owner' => 'evolvethinking',
             'repo'  => 'delta_reporting',
          }]
@@ -1204,7 +987,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $config_ref->{git_feed},
+            'feed'  => $config->{git_feed},
             'owner' => 'neilhwatson',
             'repo'  => 'vim_cf3',
          }]
@@ -1212,7 +995,7 @@ sub tick
       {
          name => \&main::git_feed,
          arg  => [{
-            'feed'  => $config_ref->{git_feed},
+            'feed'  => $config->{git_feed},
             'owner' => 'neilhwatson',
             'repo'  => 'cfbot',
          }]
@@ -1233,7 +1016,7 @@ sub tick
       $self->forkit({
          run       => $e->{name},
          arguments => $e->{arg},
-         channel   => $config_ref->{irc}{channels}[0],
+         channel   => $config->{irc}{channels}[0],
          handler   => '_fork_notice',
       });
    }
@@ -1259,7 +1042,7 @@ sub help
    $self->forkit({
       run       => \&main::reply_with_topic ,
       arguments => [ 'help' ],
-      channel   => $config_ref->{irc}{channels}[0],
+      channel   => $config->{irc}{channels}[0],
    });
    return;
 }
