@@ -16,7 +16,7 @@ require cfbot;
 
 my $irc_regex = cfbot::_get_msg_regexes();
 
-_test_body_regex( $irc_msg );
+_test_body_regex( $irc_regex );
 
 done_testing;
 
@@ -26,18 +26,15 @@ done_testing;
 
 # Test regexes used to trigger events from messages in the channel.
 sub _test_body_regex {
-   my $irc_msg = shift;
+   my $irc_regex = shift;
 
-   for my $next_msg ( sort keys %{ $irc_msg } ) {
-      for my $next_input ( @{ $irc_msg{$next_msg}->{input} } ) {
+   for my $next_msg ( sort keys %{ $irc_regex } ) {
+      for my $next_input ( @{ $irc_regex->{$next_msg}->{input} } ) {
          subtest 'Testing body matching regexes' => sub {
-            # Debugging
-            # warn "Testing [$next_input] =~ $irc_msg{$next_msg}->{regex}";
 
-            ok( $next_input =~ $irc_msg{$next_msg}->{regex}
+            ok( $next_input =~ $irc_regex->{$next_msg}->{regex}
                , "Does regex match message body?" );
-            warn" ok( $LAST_PAREN_MATCH =~ $irc_msg{$next_msg}->{capture}";
-            ok( $LAST_PAREN_MATCH =~ $irc_msg{$next_msg}->{capture}
+            ok( $LAST_PAREN_MATCH =~ $irc_regex->{$next_msg}->{capture}
                , "Is the correct string captured?" );
          }
       }

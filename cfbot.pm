@@ -356,12 +356,18 @@ sub index_cfe_functions {
    return \%function;
 }
 
+# Hack to shar with testing and package below
+sub _get_prefix {
+   return qr/$config->{irc}{nick}:?\s+/i;
+}
+
 # regex data for IRC message matching. We store the data here so that it can be
 # tested and also use it in the bot's sub said dispatch table.
+
 sub _get_msg_regexes {
-   # TODO config var not available?
-   my $prefix = qr/$config->{irc}{nick}:?\s+/i;
-   my %irc_msg = (
+   # TODO must share prefix with this sub and bot package below
+   my $prefix = _get_prefix();
+   my %irc_regex = (
       bug =>
       {
          regex => qr/(?:bug\s+ | \#) (\d{4,5}) /xi,
@@ -404,7 +410,7 @@ sub _get_msg_regexes {
       },
    );
 
-   return \%irc_msg;
+   return \%irc_regex;
 }
 
 #
@@ -811,6 +817,7 @@ sub said
    my $self = shift;
    my $msg = shift;
    my $replies;
+   my $prefix = _get_prefix();
    my $irc_regex = main::_get_msg_regexes();
 
    my $now = Time::Piece->localtime();
@@ -828,17 +835,17 @@ sub said
    my @dispatch = (
       {
          name  => 'bug match',
-         regex => $irc_msg->{bug}{regex},
+         regex => $irc_regex->{bug}{regex},
          run   => \&main::get_bug,
       },
       {
          name  => 'function search',
-         regex => $irc_msg->{function}{regex},
+         regex => $irc_regex->{function}{regex},
          run   => \&main::reply_with_function,
       },
       {
          name  => 'wow',
-         regex => $irc_msg->{wow}{regex},
+         regex => $irc_regex->{wow}{regex},
          run   => \&main::say_words_of_wisdom,
       },
       # This must be last
