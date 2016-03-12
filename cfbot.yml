@@ -6,12 +6,12 @@ irc:
   channels: 
     - "#cfengine"
   name: "CFEngine chat bot"
+  username: cfbot
   nick: cfbot 
-  port: 6697
   server: irc.freenode.net
+  port: 6697
   ssl: 1
   useipv6: 1
-  username: cfbot
 
 bug_tracker: "https://dev.cfengine.com/issues"
 bug_feed: "https://dev.cfengine.com/projects/core/activity.atom"

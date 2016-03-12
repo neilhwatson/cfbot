@@ -1,0 +1,17 @@
+language: perl
+perl:
+   - '5.16'
+
+install:
+   - cpanm -n Test::More Bot::BasicBot Perl6::Slurp AnyEvent::Util HTTP::Tiny
+   - cpanm -n Cache::FastMmap Web::Query XML::Feed Config::YAML JSON 
+   - apt-get install ngircd git
+   - git clone https://github.com/cfengine/documentation.git
+
+script:
+   - prove
+
+sudo: false
+
+notification:
+   - email: false

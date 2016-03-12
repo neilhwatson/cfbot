@@ -23,7 +23,7 @@ _test_bug_number_invalid( 'xxxxx' );
 
 _test_cfengine_bug_atom_feed({
    feed       => $config->{bug_feed},
-   newer_than => 6000
+   newer_than => 2880
 });
 
 #
@@ -61,7 +61,12 @@ sub _test_bug_number_invalid {
 # Test that bug feed returns at least one correct entry.
 sub _test_cfengine_bug_atom_feed {
    my ( $arg ) = @_;
-   my $events = cfbot::atom_feed( $arg );
+
+   my $events = cfbot::atom_feed({
+      feed       => $arg->{feed},
+      newer_than => $arg->{newer_than}
+   });
+
    # e.g. Feature #7346 (Open): string_replace function
    ok( $events->[0] =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i,
       "Was a bug returned?" );

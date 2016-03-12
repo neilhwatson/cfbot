@@ -46,10 +46,15 @@ my $config = _load_config( $cli_arg_ref->{config} );
 
 if ( $cli_arg_ref->{debug} )
 {
-   $config->{irc}{channels}[0] = '#bottest';
-   $config->{irc}{nick}        = 'cfbot_test';
+   $config->{irc}{server}      = 'localhost';
+   $config->{irc}{channels}    = [ '#bottest' ];
+   $config->{irc}{username}    = 'cfbot';
+   $config->{irc}{name}        = 'cfbot in debug mode';
+   $config->{irc}{nick}        = 'cfbot';
+   $config->{irc}{port}        = 6667;
+   $config->{irc}{ssl}         = 0;
    $config->{wake_interval}    = 5;
-   $config->{newer_than}       = 1440;
+   $config->{newer_than}       = 2880;
 }
 
 #
@@ -468,8 +473,6 @@ sub say_words_of_wisdom
    $arg_word    = 'no' unless defined $arg_word;
    my $message  = q{};
 
-   warn "wow arg_word = [$arg_word]" if $cli_arg_ref->{debug};
-
    # Load words of wisdom
    if ( ! $words_of_wisdom ){
       my $wow_file = "$cli_arg_ref->{home}/words_of_wisdom";
@@ -665,11 +668,8 @@ sub atom_feed {
    my $feed       = $arg->{feed};
    my @events;
 
-   warn "Getting atom feed for [$feed] ".
-      "records newer than [$newer_than]min" if $cli_arg_ref->{debug};
-
    my $xml = XML::Feed->parse( URI->new( $feed )) or
-      die "Feed error with [$feed] ".XML::Feed->errstr;
+      croak "Feed error with [$feed] ".XML::Feed->errstr;
 
    for my $e ( $xml->entries ) {
       if ( $e->title =~ m/\A\w+ # Start with any word
@@ -817,8 +817,8 @@ sub said
    my $self = shift;
    my $msg = shift;
    my $replies;
-   my $prefix = _get_prefix();
-   my $irc_regex = main::_get_msg_regexes();
+   my $irc_regex = cfbot::_get_msg_regexes();
+   my $prefix = cfbot::_get_prefix();
 
    my $now = Time::Piece->localtime();
 
@@ -826,9 +826,10 @@ sub said
    return if ( $now < $hush );
 
    # Be quite if told to hush.
-   if ( $msg->{raw_body} =~ m/$prefix (hush|(be\s+)?quiet|shut\s*up|silence) /ix )
+   if ( $msg->{raw_body}
+      =~ m/$prefix (hush|(be\s+)?quiet|shut\s*up|silence) /ix )
    {
-      push @{ $replies }, main::hush();
+      push @{ $replies }, cfbot::hush();
    }
 
    # Messages that will trigger action.
@@ -836,23 +837,23 @@ sub said
       {
          name  => 'bug match',
          regex => $irc_regex->{bug}{regex},
-         run   => \&main::get_bug,
+         run   => \&cfbot::get_bug,
       },
       {
          name  => 'function search',
          regex => $irc_regex->{function}{regex},
-         run   => \&main::reply_with_function,
+         run   => \&cfbot::reply_with_function,
       },
       {
          name  => 'wow',
          regex => $irc_regex->{wow}{regex},
-         run   => \&main::say_words_of_wisdom,
+         run   => \&cfbot::say_words_of_wisdom,
       },
       # This must be last
       {
          name  => 'topic search',
          regex => qr/(.*)/,
-         run   => \&main::reply_with_topic,
+         run   => \&cfbot::reply_with_topic,
       }
    );
 
@@ -860,22 +861,12 @@ sub said
 
    # Process each irc msg agains dispatch table
    DISPATCH: for my $next_dispatch ( @dispatch ) {
-      # Debugging
-      if ( $cli_arg_ref->{debug} ) {
-         warn "Checking dispatch $next_dispatch->{name}";
-         warn "$msg->{raw_body} =~ $next_dispatch->{regex}";
-      }
 
       # If irc msg matches one in the dispatch table
       if ( $msg->{raw_body} =~ $next_dispatch->{regex} ) {
          # Keep captured text from the irc msg
          if ( defined $LAST_PAREN_MATCH ) {
             $arg = $LAST_PAREN_MATCH;
-
-            # Debugging
-            if ( $cli_arg_ref->{debug} ){
-               warn "Calling dispatch $next_dispatch->{name}, arg [$arg]";
-            }
 
             # Call sub from disptach table
             $self->forkit({
@@ -956,11 +947,11 @@ sub tick
 
    my @events = (
       {
-         name => \&main::atom_feed,
+         name => \&cfbot::atom_feed,
          arg  => [{ 'feed' => "$config->{bug_feed}" }]
       },
       {
-         name => \&main::git_feed,
+         name => \&cfbot::git_feed,
          arg  => [{
             'feed'  => $config->{git_feed},
             'owner' => 'cfengine',
@@ -968,7 +959,7 @@ sub tick
          }]
       },
       {
-         name => \&main::git_feed,
+         name => \&cfbot::git_feed,
          arg  => [{
             'feed'  => $config->{git_feed},
             'owner' => 'cfengine',
@@ -976,7 +967,7 @@ sub tick
          }]
       },
       {
-         name => \&main::git_feed,
+         name => \&cfbot::git_feed,
          arg  => [{
             'feed'  => $config->{git_feed},
             'owner' => 'evolvethinking',
@@ -984,7 +975,7 @@ sub tick
          }]
       },
       {
-         name => \&main::git_feed,
+         name => \&cfbot::git_feed,
          arg  => [{
             'feed'  => $config->{git_feed},
             'owner' => 'evolvethinking',
@@ -992,7 +983,7 @@ sub tick
          }]
       },
       {
-         name => \&main::git_feed,
+         name => \&cfbot::git_feed,
          arg  => [{
             'feed'  => $config->{git_feed},
             'owner' => 'neilhwatson',
@@ -1000,7 +991,7 @@ sub tick
          }]
       },
       {
-         name => \&main::git_feed,
+         name => \&cfbot::git_feed,
          arg  => [{
             'feed'  => $config->{git_feed},
             'owner' => 'neilhwatson',
@@ -1008,11 +999,11 @@ sub tick
          }]
       },
       {
-         name => \&main::say_words_of_wisdom,
+         name => \&cfbot::say_words_of_wisdom,
          arg  => [ '' ],
       },
       {
-         name => \&main::index_cfe_functions,
+         name => \&cfbot::index_cfe_functions,
          arg  => [ '' ],
       },
    );
@@ -1047,7 +1038,7 @@ sub help
 {
    my $self = shift;
    $self->forkit({
-      run       => \&main::reply_with_topic ,
+      run       => \&cfbot::reply_with_topic ,
       arguments => [ 'help' ],
       channel   => $config->{irc}{channels}[0],
    });
