@@ -62,7 +62,7 @@ ok( WIFEXITED( system( "$irc_server -f ./ngircd/ngircd.conf" ) >> 8 )
    , 'IRC server started' );
 
 # Run test bot that will chat to cfbot
-my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 66 });
+my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 100 });
 
 ok( WIFEXITED(
    system( "./daemon.pl -u $user -g $group -di . --de --start" ) >> 8 )
@@ -85,35 +85,35 @@ else {
 my $chat_log = slurp $log or croak "Cannot open $log, [$!]";
 
 # Tests
-like( $chat_log, qr/\nPull request (?:closed|opened) in/ms,
-   'Cfbot Github feed' );
+like( $chat_log, qr/\n Pull|Push /msx
+   ,'Cfbot Github feed' );
 
-like( $chat_log, qr/\nBug \#\d{4} \((?:Closed|Opened|Merged)\):/ms,
-   'Cfbot bug feed' ); 
+like( $chat_log, qr/\nBug \#\d{4} \((?:Closed|Opened|Merged)\):/ms
+   ,'Cfbot bug feed' ); 
 
-like( $chat_log, qr/\nUsing Cfbot: Function lookup: /ms,
-   'Cfbot help topic' );
+like( $chat_log, qr/\nUsing Cfbot: Function lookup: /ms
+   ,'Cfbot help topic' );
 
-like( $chat_log, qr/\nThis topic is for testing the cfbot/ms,
-   'Cfbot test topic' );
+like( $chat_log, qr/\nThis topic is for testing the cfbot/ms
+   ,'Cfbot test topic' );
 
 like( $chat_log, qr{ \n
    \Qhttps://dev.cfengine.com/issues/2333 \E
    \QVariables not expanded inside array\E
-   }msx,
-   'Lookup but 2333' );
+   }msx
+   ,'Lookup but 2333' );
 
-like( $chat_log, qr/ \n \QBug [99999] not found\E /msx,
-   'Reports when a bug is not found' );
+like( $chat_log, qr/ \n \QBug [99999] not found\E /msx
+   ,'Reports when a bug is not found' );
 
-unlike( $chat_log, qr/ \n \QBug [xxxxx]\E /msx,
-   'Does not report on bug xxxxx' );
+unlike( $chat_log, qr/ \n \QBug [xxxxx]\E /msx
+   ,'Does not report on bug xxxxx' );
 
 subtest 'function data_expand' => sub {
    like( $chat_log, qr{ \n \QFUNCTION data_expand\E }mxs
-      , 'Returns function name' );
+      ,'Returns function name' );
    like( $chat_log, qr{ \n Transforms }mxs
-      , 'Returns function blurb' );
+      ,'Returns function blurb' );
    like( $chat_log, qr{ \n URL \s+ 
    \Qhttps://docs.cfengine.com/latest/reference-functions-data_expand.html\E
    }mxs

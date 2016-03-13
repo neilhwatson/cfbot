@@ -54,7 +54,7 @@ if ( $cli_arg_ref->{debug} )
    $config->{irc}{port}        = 6667;
    $config->{irc}{ssl}         = 0;
    $config->{wake_interval}    = 5;
-   $config->{newer_than}       = 2880;
+   $config->{newer_than}       = 3500;
 }
 
 #
