@@ -1,6 +1,9 @@
 language: perl
 perl:
    - '5.16'
+   - '5.18'
+   - '5.20'
+   - '5.22'
 
 install:
    - git clone https://github.com/cfengine/documentation.git
