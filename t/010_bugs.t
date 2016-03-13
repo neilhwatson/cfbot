@@ -23,7 +23,7 @@ _test_bug_number_invalid( 'xxxxx' );
 
 _test_cfengine_bug_atom_feed({
    feed       => $config->{bug_feed},
-   newer_than => 2880
+   newer_than => 3500
 });
 
 #
