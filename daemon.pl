@@ -12,7 +12,7 @@ use Perl6::Slurp;
 
 =head1 SYNOPSIS
 
-C<< daemon [-di|--dir <working directory> [-u|--user <user>] [-g|--group <group> [-stat|-stop|-restart] >>
+C<< daemon [-di|--dir <working directory> [-u|--user <user>] [-g|--group <group> [-stat|-stop|-restart] [-d|--debug] >>
 
 This script starts cfbot.pl as a daemon for normal use.
 
@@ -39,14 +39,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-sub _get_cli_args
-{
+sub _get_cli_args {
    my @args = @_;
 
    use Getopt::Long qw/GetOptionsFromArray/;
    use Cwd;
 
-   my $args->{dir} = getcwd();
    # Set default CLI args here. Getopts will override.
    my %arg = (
       dir => '/home/cfbot/cfbot',
@@ -75,16 +73,14 @@ sub _get_cli_args
    };
 
 # Protect input.
-   unless ( $arg{dir} =~ m|\A[a-z0-9_./-]+\Z|i )
-   {
+   unless ( $arg{dir} =~ m|\A[a-z0-9_./-]+\Z|i ) {
       usage( "Tainted dir argument" );
       exit 1;
    }
    return \%arg;
 }
 
-sub usage
-{
+sub usage {
    my $msg = shift;
    my $section;
    if ( $msg =~ m/\AEXAMPLES\Z/ )
@@ -105,14 +101,12 @@ sub usage
 
 my $args = _get_cli_args( @ARGV );
 
-if ( $args->{help} )
-{
+if ( $args->{help} ) {
    usage( 'HELP' );
    exit;
 }
 =pod
-elsif ( $args->{version} )
-{
+elsif ( $args->{version} ) {
    say $VERSION;
    exit;
 }
@@ -145,34 +139,27 @@ my $d = Proc::Daemon->new(
 
 my $exit = 0;
 
-if ( $args->{start} )
-{
+if ( $args->{start} ) {
    $exit += start();
-
 }
-elsif ( $args->{stop} )
-{
+elsif ( $args->{stop} ) {
    $exit += stop();
 }
-elsif ( $args->{restart} )
-{
+elsif ( $args->{restart} ) {
    stop();
    $exit += start();
 }
-else
-{
+else {
    usage( 'USAGE' );
    exit 1;
 }
 
-sub start
-{
+sub start {
    my $pid = $d->Init();
    return kill 0, $pid;
 }
 
-sub stop
-{
+sub stop {
    my $pid = slurp $pid_file;
    unlink $pid_file;
    return kill 'TERM', $pid;
@@ -185,9 +172,9 @@ sub status {
       my $pid = slurp $pid_file;
       return kill 0, $pid;
    }
-
    return 0;
 }
 
 # TODO figure out return status
+exit 0 if $exit > 0;
 exit $exit;

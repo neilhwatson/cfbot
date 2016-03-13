@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use AnyEvent;
 use AnyEvent::Util;
-use Test::More tests => 12;
+use Test::More tests => 14;
 use Perl6::Slurp;
 use Carp qw/ croak carp/;
 use POSIX qw/ WIFEXITED /;
