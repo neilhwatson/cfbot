@@ -8,6 +8,7 @@ install:
    - cpanm -n Cache::FastMmap Web::Query XML::Feed Config::YAML JSON 
    - cpanm -n Proc::Daemon
    - sudo apt-get install ngircd 
+   - ls -l
 
 script:
    - prove
