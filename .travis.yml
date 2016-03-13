@@ -5,6 +5,7 @@ perl:
 install:
    - cpanm -n Test::More Bot::BasicBot Perl6::Slurp AnyEvent::Util HTTP::Tiny
    - cpanm -n Cache::FastMmap Web::Query XML::Feed Config::YAML JSON 
+   - cpanm -n Proc::Daemon
    - apt-get install ngircd git
    - git clone https://github.com/cfengine/documentation.git
 

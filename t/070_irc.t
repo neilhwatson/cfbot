@@ -51,24 +51,35 @@ sub fork_bot {
 carp "Starting the bot for testing. This will take some time...";
 
 # Start irc server for testing
+my $user            = getlogin;
+my $group           = (getpwuid( $< ))[0];
 my $irc_server      = '/usr/sbin/ngircd';
 my $server_pid_file = '/tmp/ngircd.pid';
+
 unlink $server_pid_file if -e $server_pid_file;
 ok( -x $irc_server, "Test irc server exists" );
 ok( WIFEXITED( system( "$irc_server -f ./ngircd/ngircd.conf" ) >> 8 )
    , 'IRC server started' );
 
-# Run test bots that will chat to each other.
-my $bot2 = fork_bot({ bot => ['./cfbot_tester.pm'],     runtime => 66 });
-my $bot1 = fork_bot({ bot => ['./cfbot.pm', '--debug'], runtime => 66 });
+# Run test bot that will chat to cfbot
+my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 66 });
+
+ok( WIFEXITED(
+   system( "./daemon.pl -u $user -g $group -di . --de --start" ) >> 8 )
+   , 'cfbot started' );
 
 # Kill bots
 $bot1->recv;
-$bot2->recv;
+ok( WIFEXITED( system( "./daemon.pl --di . --stop" ) >> 8), 'cfbot stopped');
 
 # Kill server from pid
-my $server_pid = slurp $server_pid_file;
-kill 'TERM', $server_pid;
+if ( -e $server_pid_file ) {
+   my $server_pid = slurp $server_pid_file;
+   kill 'TERM', $server_pid;
+}
+else {
+   carp "Could not kill test irc server ngircd";
+}
 
 # Slurp log file for examination
 my $chat_log = slurp $log or croak "Cannot open $log, [$!]";

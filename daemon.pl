@@ -1,17 +1,18 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 use strict;
 use warnings;
 use Proc::Daemon;
 use Cwd;
 use Pod::Usage;
-# libproc-daemon-perl 
+use Carp;
+use Perl6::Slurp;
 
 =pod
 
 =head1 SYNOPSIS
 
-C<< daemon [-d|--dir <working directory> [-stat|-stop|-restart] >>
+C<< daemon [-di|--dir <working directory> [-u|--user <user>] [-g|--group <group> [-stat|-stop|-restart] >>
 
 This script starts cfbot.pl as a daemon for normal use.
 
@@ -48,7 +49,9 @@ sub _get_cli_args
    my $args->{dir} = getcwd();
    # Set default CLI args here. Getopts will override.
    my %arg = (
-      dir => '/home/cfbot/cfbot'
+      dir => '/home/cfbot/cfbot',
+      user => 'cfbot',
+      group => 'cfbot',
    );
 
    GetOptionsFromArray
@@ -60,7 +63,10 @@ sub _get_cli_args
       'start',
       'stop',
       'restart',
+      'debug',
       'dir:s',
+      'user:s',
+      'group:s',
    )
    or eval
    {
@@ -112,36 +118,46 @@ elsif ( $args->{version} )
 }
 =cut
 
+# Protect input
+if ( $args->{user} eq 'root' ) {
+   croak "User cannot be root";
+}
+if ( $args->{group} eq 'root' ) {
+   croak "Group cannot be root";
+}
+
 #my $args->{dir} = getcwd();
 my $pid_file = $args->{dir}."/cfbot.pid";
-my $uid = getpwnam( 'cfbot' );
-my $gid = getgrnam( 'cfbot' );
+my $uid = getpwnam( $args->{user} );
+my $gid = getgrnam( $args->{group} );
+my $exec_command = $args->{dir}."/cfbot.pm";
+
+if ( $args->{debug} ){
+   $exec_command .= ' --debug';
+}
 my $d = Proc::Daemon->new(
    work_dir     => $args->{dir},
    pid_file     => $pid_file,
-   exec_command => $args->{dir}."/cfbot.pl",
+   exec_command => $exec_command,
    setuid       => $uid,
    setgid       => $gid,
 );
 
-my %subs = ( 
-   start   => \&start,
-   stop    => \&stop,
-   restart => \&restart
-);
+my $exit = 0;
 
 if ( $args->{start} )
 {
-   start();
+   $exit += start();
+
 }
 elsif ( $args->{stop} )
 {
-   stop();
+   $exit += stop();
 }
 elsif ( $args->{restart} )
 {
    stop();
-   start();
+   $exit += start();
 }
 else
 {
@@ -152,23 +168,26 @@ else
 sub start
 {
    my $pid = $d->Init();
-   return;
+   return kill 0, $pid;
 }
 
 sub stop
 {
-   my $pid;
-   open my $fh, '<', $pid_file
-      or die "Cannot open pid file [$pid_file]";
-   $pid .= $_ while (<$fh>);
-   close $fh;
-   kill 'TERM', $pid;
-   return;
+   my $pid = slurp $pid_file;
+   unlink $pid_file;
+   return kill 'TERM', $pid;
 } 
 
-sub restart
-{
-   stop();
-   start();
-   return;
+sub status {
+   my $file = shift;
+   
+   if ( -e $file ){
+      my $pid = slurp $pid_file;
+      return kill 0, $pid;
+   }
+
+   return 0;
 }
+
+# TODO figure out return status
+exit $exit;
