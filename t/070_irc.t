@@ -62,7 +62,7 @@ ok( WIFEXITED( system( "$irc_server -f ./ngircd/ngircd.conf" ) >> 8 )
    , 'IRC server started' );
 
 # Run test bot that will chat to cfbot
-my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 100 });
+my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 120 });
 
 ok( WIFEXITED(
    system( "./daemon.pl -u $user -g $group -di . --de --start" ) >> 8 )
