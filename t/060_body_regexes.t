@@ -30,7 +30,7 @@ sub _test_body_regex {
 
    for my $next_msg ( sort keys %{ $irc_regex } ) {
       for my $next_input ( @{ $irc_regex->{$next_msg}->{input} } ) {
-         subtest 'Testing body matching regexes' => sub {
+         subtest "Testing body matching regexes for [$next_msg]" => sub {
 
             ok( $next_input =~ $irc_regex->{$next_msg}->{regex}
                , "Does regex match message body?" );

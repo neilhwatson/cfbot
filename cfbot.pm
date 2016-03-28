@@ -17,8 +17,9 @@ use Cache::FastMmap;
 use Pod::Usage;
 use Test::More; 
 use Time::Piece;
-use Web::Query;
 use XML::Feed;
+use Mojo::UserAgent;
+use Mojo::DOM;
 use feature 'say';
 
 our $VERSION = 1.0;
@@ -237,7 +238,7 @@ sub time_cmp {
    # Expects newer_than to be in minutes.
    my ( $arg ) = @_;
 
-   $arg->{time} =~ s/Z\Z//g;
+   $arg->{time} =~ s/ (?: \.\d{1,3} )? Z\Z//ixg;
    $arg->{time} = Time::Piece->strptime( $arg->{time}, "%Y-%m-%dT%H:%M:%S" );
 
    if ( $arg->{newer_than} !~ m/\A\d+\Z/ ) {
@@ -375,15 +376,15 @@ sub _get_msg_regexes {
    my %irc_regex = (
       bug =>
       {
-         regex => qr/(?:bug\s+ | \#) (\d{4,5}) /xi,
+         regex => qr/(?:bug\s+ | \#) (\d{3,5}) /xi,
          input => [
-            'bug 2333',
-            "!$config->{irc}{nick} bug 2333",
-            "$config->{irc}{nick}: bug 2333",
-            "!$config->{irc}{nick}: bug 2333",
-            "#2333",
+            'bug 484',
+            "!$config->{irc}{nick} bug 484",
+            "$config->{irc}{nick}: bug 484",
+            "!$config->{irc}{nick}: bug 484",
+            "#484",
          ],
-         capture => qr/\A2333\Z/,
+         capture => qr/\A484\Z/,
       },
       function =>
       {
@@ -570,33 +571,21 @@ sub get_bug
    my $bug_number = shift;
    my @return;
    my $message = "Unexpected error in retreiving bug $bug_number";
-   my $url = "$config->{bug_tracker}/$bug_number";
+   my $url = $config->{bug_tracker_rest}.$bug_number;
 
-   unless ( $bug_number =~ m/\A\d{1,6}\Z/ )
-   {
+   unless ( $bug_number =~ m/\A\d{1,6}\Z/ ) {
       push @return, "[$bug_number] is not a valid bug number";
    }
-   else
-   {
-      my %responses = (
-         200 => $url,
-         403 => $url. " Not authorized to read bug $bug_number",
-         404 => "Bug [$bug_number] not found",
-         500 => "Web server error from $url"
-      );
-
-      my $client = HTTP::Tiny->new();
-      my $response = $client->get( "$config->{bug_tracker}/$bug_number" );
-      for my $key (keys %responses)
-      {
-         $message = $responses{$key} if $response->{status} == $key;
+   else {
+      my $ua = Mojo::UserAgent->new();
+      my $reply = $ua->get( $url )->res->json;
+      if ( $reply->{fields}{summary} ) {
+            $message = $config->{bug_tracker}.$bug_number
+            .', '
+            .$reply->{fields}{summary};
       }
-
-      if ( $response->{status} == 200 )
-      {
-         my $q = Web::Query->new_from_html( \$response->{content} );
-         $message = $url .' '. $q->find( 'div.subject' )->text;
-         $message =~ s/\A\s+|\s+\Z//g; # trim leading and trailing whitespace
+      else {
+         $message = "Bug [$bug_number] not found";
       }
    }
    push @return, $message;
@@ -672,17 +661,9 @@ sub atom_feed {
       croak "Feed error with [$feed] ".XML::Feed->errstr;
 
    for my $e ( $xml->entries ) {
-      if ( $e->title =~ m/\A\w+ # Start with any word
-         \s+
-         \#\d{4,5} # bug number
-         \s+
-         \( (Open|Closed|Merged|Rejected|Unconfirmed) \) # Status of bug
-         /imsx 
-
-         and
-
-         time_cmp({ time => $e->updated, newer_than => $newer_than }) ) {
-         push @events, $e->title .", ". $e->link;
+      if ( time_cmp({ time => $e->updated, newer_than => $newer_than }) ) {
+         my $title = Mojo::DOM->new->parse( $e->title )->all_text;
+         push @events, 'Bug feed: '.$title .", ". $e->link;
       }
    }
    say $_ foreach ( @events );

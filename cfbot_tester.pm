@@ -54,7 +54,7 @@ sub tick {
    my @msgs = (
       'help', 
       'Test topic',
-      'bug xxxxx','#2333', '#999999', 
+      'bug xxxxx','#484', '#999999', 
       'function data_expand',
       'function regcmp',
       'cfbot: hush',

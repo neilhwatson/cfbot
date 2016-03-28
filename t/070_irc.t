@@ -88,7 +88,7 @@ my $chat_log = slurp $log or croak "Cannot open $log, [$!]";
 like( $chat_log, qr/\n Pull|Push /msx
    ,'Cfbot Github feed' );
 
-like( $chat_log, qr/\nBug \#\d{4} \((?:Closed|Opened|Merged)\):/ms
+like( $chat_log, qr/\nBug feed: \w+ .* https:/ms
    ,'Cfbot bug feed' ); 
 
 like( $chat_log, qr/\nUsing Cfbot: Function lookup: /ms
@@ -98,10 +98,11 @@ like( $chat_log, qr/\nThis topic is for testing the cfbot/ms
    ,'Cfbot test topic' );
 
 like( $chat_log, qr{ \n
-   \Qhttps://dev.cfengine.com/issues/2333 \E
+   \Qhttps://tracker.mender.io/browse/CFE-484\E
+   ,\s
    \QVariables not expanded inside array\E
    }msx
-   ,'Lookup but 2333' );
+   ,'Lookup but 484' );
 
 like( $chat_log, qr/ \n \QBug [99999] not found\E /msx
    ,'Reports when a bug is not found' );

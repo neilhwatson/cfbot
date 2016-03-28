@@ -15,7 +15,7 @@ require cfbot;
 
 my $config = cfbot::_load_config( 'cfbot.yml' );
 
-_test_bug_exists( 2333 );
+_test_bug_exists( 484 );
 
 _test_bug_not_found( 999999 );
 
@@ -36,8 +36,10 @@ sub _test_bug_exists {
    my $msg = cfbot::get_bug( $bug );
 
    subtest 'Lookup existing bug' => sub {
-      ok( $msg->[0] =~ m|\A$config->{bug_tracker}/$bug|, "URL correct?" );
-      ok( $msg->[0] =~ m|Variables not expanded inside array\Z|, "Subject correct?" );
+      like( $msg->[0], qr|\Q$config->{bug_tracker}$bug\E|
+         , "Bug exists" );
+      like( $msg->[0], qr|Variables not expanded inside array|i
+         , "Subject correct" );
    };
    return;
 }
@@ -68,7 +70,7 @@ sub _test_cfengine_bug_atom_feed {
    });
 
    # e.g. Feature #7346 (Open): string_replace function
-   ok( $events->[0] =~ m/\A(Documentation|Cleanup|Bug|Feature) #\d{4,5}.+\Z/i,
+   ok( $events->[0] =~ m/(Created|Changed|Started).*CFE-\d{4,5}.+\Z/i,
       "Was a bug returned?" );
    return;
 }
