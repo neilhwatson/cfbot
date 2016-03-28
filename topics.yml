@@ -22,7 +22,7 @@
    - bugs
    - feature request
    - bug tracker
-  topic: CFEngine bug and feature request tracker: https://dev.cfengine.com/projects/core/activity. You can vote for bugs and features by using the 'watch' feature.
+  topic: CFEngine bug and feature request tracker: https://tracker.mender.io/projects/CFEngine/summary. You can vote for bugs and features.
 
 - keywords:
    - delta hardening
