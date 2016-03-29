@@ -12,7 +12,7 @@
 
 - keywords:
    - best practices
-  topic: CFEngine best practices: http://evolvethinking.com/category/cfengine/best-practices/ and https://github.com/atsaloli/cf-health-check
+  topic: CFEngine best practices: http://watson-wilson.ca/blog/tag/best-practices/ and https://github.com/atsaloli/cf-health-check
 
 - keywords:
    - About cfbot
@@ -29,7 +29,7 @@
    - hardening
    - nsa
    - nist
-  topic: Delta Hardening is an open source data pack for EFL. DH provides ready to use host hardening policy based on NSA and NIST recommendations. http://evolvethinking.com/products/delta_hardening/, https://github.com/evolvethinking/evolve_cfengine_freelib/tree/3.5/policy_data/delta_hardening
+  topic: Delta Hardening is an open source data pack for EFL. DH provides ready to use host hardening policy based on NSA and NIST recommendations. https://github.com/neilhwatson/evolve_cfengine_freelib/policy_data/delta_hardening
 
 - keywords:
    - documentation
@@ -42,7 +42,7 @@
    - auditing
    - auditor
    - compliance
-  topic: Delta Reporting is an open source policy compliance and reporting tool for CFEngine. https://github.com/evolvethinking/delta_reporting
+  topic: Delta Reporting is an open source policy compliance and reporting tool for CFEngine. https://github.com/neilhwatson/delta_reporting
  
 - keywords:
    - enterprise
@@ -60,7 +60,7 @@
    - cookbook
    - policy framework
    - promise framework
-  topic: The Evolve Free Library (EFL) is an open source, production ready CFEngine policy framework. https://github.com/evolvethinking/evolve_cfengine_freelib
+  topic: The Evolve Free Library (EFL) is an open source, production ready CFEngine policy framework. https://github.com/neilhwatson/evolve_cfengine_freelib
 
 - keywords:
    - Frameworks
@@ -151,14 +151,14 @@
 
 - keywords:
    - Autorun
-  topic: Use CFEngine's mastefiles autorun policy to make cf-agent automatically run policies in certain directories. See https://digitalelf.net/2014/07/a-primer-on-cfengine-3-dot-6-autorun/ and a working example: https://github.com/evolvethinking/evolve_cfengine_freelib/blob/master/INSTALL.md and https://github.com/evolvethinking/evolve_cfengine_freelib/blob/master/masterfiles/services/autorun/efl.cf
+  topic: Use CFEngine's mastefiles autorun policy to make cf-agent automatically run policies in certain directories. See https://digitalelf.net/2014/07/a-primer-on-cfengine-3-dot-6-autorun/ and a working example: https://github.com/neilhwatson/evolve_cfengine_freelib/blob/master/INSTALL.md and https://github.com/neilhwatson/evolve_cfengine_freelib/blob/master/masterfiles/services/autorun/efl.cf
 
 - keywords:
    - testing
-  topic: Ideas for testing your CFEngine policy: http://evolvethinking.com/category/software-testing/, http://syslog.me/2014/08/30/test-dummies-on-sale/, https://github.com/nmische/kitchen-cfengine/
+  topic: Ideas for testing your CFEngine policy: http://watson-wilson.ca/blog/tag/software-testing/, http://syslog.me/2014/08/30/test-dummies-on-sale/, https://github.com/nmische/kitchen-cfengine/
 
 - keywords:
    - pcre
    - regular expression
    - regex
-  topic: CFEngine uses PCRE flavoured regular expressions. Here's a cheatsheet: http://evolvethinking.com/pcre-cheatsheet/ and here's an example of good regex style in CFEngine: http://evolvethinking.com/build-better-regular-expressions-in-cfengine/
+  topic: CFEngine uses PCRE flavoured regular expressions. Here's a cheatsheet: http://watson-wilson.ca/blog/2013/05/09/pcre-cheatsheet/ and here's an example of good regex style in CFEngine: http://watson-wilson.ca/blog/2015/08/20/build-better-regular-expressions-in-cfengine/ 
