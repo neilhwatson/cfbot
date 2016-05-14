@@ -1,8 +1,8 @@
 # Words of wisdom that the bot might say.
 Don't write your own CFEngine policy, use existing frameworks and save time.
 A self healing infrastructure means more uninterrupted vacation time.
-Use vim_cf3 to edit your CFEngine policy in VIM: https://github.com/neilhwatson/vim_cf3 
-Use cfengine.el to edit your CFEngine in Emacs: comes with Emacs, or use https://github.com/cfengine/core/blob/master/contrib/cfengine.el 
+Use vim_cf3 to edit your CFEngine policy in VIM: https://github.com/neilhwatson/vim_cf3
+Use cfengine.el to edit your CFEngine in Emacs: comes with Emacs, or use https://github.com/cfengine/core/blob/master/contrib/cfengine.el
 A mistake in your CFEngine policy is a mistake duplicated over a thousand hosts. Fully test your policy.
 A well crafted cron script can rescue a broken CFEngine agent.
 Third party CFEngine consultants: http://www.verticalsysadmin.com/cfengine/ps.htm
@@ -52,3 +52,43 @@ New in 3.8: def.json parsed in C, **before** any policy evaluation
 Changed in 3.8: `sys.libdir` and `sys.local_libdir` no longer include the version, because @if is now available
 Changed in 3.8 and 3.7.2: cf-agent, cf-execd, cf-promises, cf-runagent and cf-serverd honor multiple -D, -N and -s arguments
 Changed in 3.8: the JSON parser now supports unquoted strings as keys e.g. { mykey: 123 }
+New in 3.9: namespaced classes can be specified on the command line
+New in 3.9: mapdata("canonify", "$(this)", mycontainer_or_list) canonifies a container or list https://docs.cfengine.com/docs/master/reference-functions-mapdata.html
+New in 3.9: processexists() and findprocesses() functions
+New in 3.9: regex_replace() function to do PCRE search and replace https://docs.cfengine.com/docs/master/reference-functions-regex_replace.html
+Changed in 3.9: returnszero() no longer outputs the output of a command (use -I to see it)
+New in 3.9: iprange() can look at a specific interface only https://docs.cfengine.com/docs/master/reference-functions-iprange.html
+New in 3.9: symbolic file modes can use "="
+New in 3.9: FreeBSD ports package manager
+New in 3.9: AIX nimclient package manager
+New in 3.9: FIFOs can be managed from policy
+New in 3.9: /proc/net networking parsed to data containers: sys.inet, sys.inet6, sys.interface_data
+New in 3.9: /proc/net networking connections parsed with network_connections() functions
+New in 3.9: sys.ip2iface reverse map from IP address to interface
+New in 3.9: mapdata("json_pipe", "jq invocation", mycontainer_or_list) transforms a container or list through a JSON pipe tool like jq https://docs.cfengine.com/docs/master/reference-functions-mapdata.html
+Changed in 3.9: "true" is always defined and "false" is never defined in a context expression.
+New in 3.9: callstack_callers() and callstack_promisers() functions
+New in 3.9: In Mustache templates, {{#-top-}} and {{/-top-}} iterate over the top level element in a container
+New in 3.9: new -w argument to override the workdir for testing
+New in 3.9: mailfilter_include and mailfilter_exclude in body executor to control cf-execd e-mail verbosity
+New in 3.9: file_make_mustache bundle to render mustache templates
+New in 3.9: cf-agent, cf-execd, cf-promises, cf-runagent and cf-serverd honor multiple -D, -N and -s arguments
+New in 3.9: printfile bodies in the stdlib
+New in 3.9: results classes body in the stdlib
+New in 3.9: cf-runagent --remote-bundles and cf-serverd "bundle" access promise
+New in 3.9: commands promise "arglist" attribute to give arguments as slist, augmenting "args" attribute
+New in 3.9: reference variables in inline JSON, for example: mergedata('[ thing, { "mykey": otherthing[123] } ]') will look up "thing" and "otherthing"
+New in 3.9: inline JSON can be used in almost all functions that so far took only slists, e.g. product() and sort()
+New in 3.9: almost all functions that take or return slists or data containers can be wrapped: sort(variablesmatching(...))
+Changed in 3.9: new package promises are the default
+New in 3.9: bodydefault:<promise_type>_<body_type> body will be used by all promises of type <promise_type> unless another body is explicitly used.
+Changed in 3.9: eval() function arguments mode and options are now optional, defaulting to infix math.
+Changed in 3.9: sort() function argument is now optional, defaulting to "lex".
+Changed in 3.9: returnszero() no longer outputs the output of a command
+Changed in 3.9: "maxbytes" argument of readjson() and readyaml() is now optional, defaulting to maxint
+Changed in 3.9: connections without TLS protocol are rejected by default
+Changed in 3.9: Policy files specified in the "inputs" section of def.json are not auto-loaded (specify them directly with @(def.inputs))
+Changed in 3.9: filestat(path, "linktarget") now follows non-absolute links and returns full path of target
+Changed in 3.9: (bootstrap|failsafe)_mode during update.cf when triggered from failsafe.cf
+Changed in 3.9: readintlist(), readreallist(), readstringlist(): parsing an empty file is not a failure, just an empty list
+New in 3.9: classes: "foo"; # no need for "expression => 'any'"--this is always defined
