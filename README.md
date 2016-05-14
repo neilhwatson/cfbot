@@ -15,3 +15,4 @@ Query the bot for EFL with !cfbot EFL and the definition for EFL will appear in 
 
 1. Edit the files topics.yml or words\_of\_wisdom, honouring the existing format.
 1. Submit a pull request.
+1. Your pull request will be test by TravisCI. If it fails you'll have to resubmit. I recommend you test your code with 'prove'.
