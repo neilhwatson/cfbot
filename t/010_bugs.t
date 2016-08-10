@@ -23,7 +23,7 @@ _test_bug_number_invalid( 'xxxxx' );
 
 _test_cfengine_bug_atom_feed({
    feed       => $config->{bug_feed},
-   newer_than => 3500
+   newer_than => 8500
 });
 
 #
@@ -70,7 +70,8 @@ sub _test_cfengine_bug_atom_feed {
    });
 
    # e.g. Feature #7346 (Open): string_replace function
-   ok( $events->[0] =~ m/(Created|Changed|Started).*CFE-\d{4,5}.+\Z/i,
+   ok( $events->[0] =~ m/(commented|Created|Changed|Started)
+      .*CFE-\d{4,5}.+\Z/ix,
       "Was a bug returned?" );
    return;
 }

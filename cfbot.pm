@@ -951,7 +951,7 @@ sub tick
          name => \&cfbot::git_feed,
          arg  => [{
             'feed'  => $config->{git_feed},
-            'owner' => 'evolvethinking',
+            'owner' => 'neilhwatson',
             'repo'  => 'evolve_cfengine_freelib',
          }]
       },
@@ -959,7 +959,7 @@ sub tick
          name => \&cfbot::git_feed,
          arg  => [{
             'feed'  => $config->{git_feed},
-            'owner' => 'evolvethinking',
+            'owner' => 'neilhwatson',
             'repo'  => 'delta_reporting',
          }]
       },
