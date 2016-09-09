@@ -42,7 +42,7 @@ New in 3.7: data_expand() function to expand variable references in a data conta
 New in 3.7: def.json to make changing the defaults really easy.
 Watch Mark Burgesses CFEngine in a day training https://www.youtube.com/watch?v=zviHfjKz1nM
 New in 3.8: body inheritance https://docs.cfengine.com/docs/3.8/reference-promise-types.html#inherit_from
-New in 3.8: HTTP GET/POST/PUT support in url_get() function https://docs.cfengine.com/docs/3.8/reference-functions-url_get.html
+New in 3.8: HTTP GET support in url_get() function https://docs.cfengine.com/docs/3.8/reference-functions-url_get.html
 New in 3.8: @if feature syntax to include policy based on whether a feature was compiled in https://docs.cfengine.com/docs/3.8/reference-macros.html#features
 New in 3.8: module protocol allows class persistence `^persistence=<minutes>` https://docs.cfengine.com/docs/3.8/reference-promise-types-commands.html#module
 New in 3.8: stdlib has simpler, easier results classes body https://docs.cfengine.com/docs/3.8/reference-standard-library-common.html#results
