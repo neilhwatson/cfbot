@@ -376,7 +376,7 @@ sub _get_msg_regexes {
    my %irc_regex = (
       bug =>
       {
-         regex => qr/(?:bug\s+ | \#) (\d{3,5}) /xi,
+         regex => qr/(?:bug\s+ | \#) (\d{2,5}) /xi,
          input => [
             'bug 484',
             "!$config->{irc}{nick} bug 484",
