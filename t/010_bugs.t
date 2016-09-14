@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/env perl 
 
 =pod
 
@@ -64,18 +64,25 @@ sub _test_bug_number_invalid {
 # Test that bug feed returns at least one correct entry.
 sub _test_cfengine_bug_atom_feed {
    my ( $arg ) = @_;
+   my $bug_line_regex = qr/
+      (commented|Created|Changed|Started)
+      .*CFE-\d{2,5}.+\Z
+   /ix;
 
    my $events = cfbot::atom_feed({
       feed       => $arg->{feed},
       newer_than => $arg->{newer_than}
    });
    warn "Bug events: ".Dumper( \$events->[0] );
-
+   if ( $events->[0] =~ $bug_line_regex, "Was a bug returned?" ){
+      warn ">> Match";
+   }
+   else {
+      warn ">> No match";
+   }
    
    # e.g. Feature #7346 (Open): string_replace function
-   ok( $events->[0] =~ m/(commented|Created|Changed|Started)
-      .*CFE-\d{2,5}.+\Z/ix,
-      "Was a bug returned?" );
+   ok( $events->[0] =~ $bug_line_regex, "Was a bug returned?" );
    return;
 }
 
