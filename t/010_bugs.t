@@ -71,7 +71,7 @@ sub _test_cfengine_bug_atom_feed {
 
    # e.g. Feature #7346 (Open): string_replace function
    ok( $events->[0] =~ m/(commented|Created|Changed|Started)
-      .*CFE-\d{4,5}.+\Z/ix,
+      .*CFE-\d{2,5}.+\Z/ix,
       "Was a bug returned?" );
    return;
 }

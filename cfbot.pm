@@ -808,7 +808,7 @@ sub said
 
    # Be quite if told to hush.
    if ( $msg->{raw_body}
-      =~ m/$prefix (hush|(be\s+)?quiet|shut\s*up|silence) /ix )
+      =~ m/$prefix (hush|(be\s+)?quiet|shut\s*up|silence|shaddup) /ix )
    {
       push @{ $replies }, cfbot::hush();
    }
