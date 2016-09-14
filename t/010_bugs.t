@@ -83,7 +83,7 @@ sub _test_cfengine_bug_atom_feed {
    
    # e.g. Feature #7346 (Open): string_replace function
    ok( $events->[0] =~ $bug_line_regex, "Was a bug returned?" );
-   return;
+   return 1;
 }
 
 
