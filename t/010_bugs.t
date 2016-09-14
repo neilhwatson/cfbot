@@ -66,7 +66,7 @@ sub _test_cfengine_bug_atom_feed {
    my ( $arg ) = @_;
    my $bug_line_regex = qr/
       (commented|Created|Changed|Started) .* CFE-\d{2,5} .+\Z
-   /ixs;
+   /sixm;
 
    my $events = cfbot::atom_feed({
       feed       => $arg->{feed},
