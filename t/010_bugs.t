@@ -11,6 +11,7 @@ Test cfbot bug lookup and feed functions
 use strict;
 use warnings;
 use Test::More tests => 4;
+use Data::Dumper;
 require cfbot;
 
 my $config = cfbot::_load_config( 'cfbot.yml' );
@@ -68,7 +69,9 @@ sub _test_cfengine_bug_atom_feed {
       feed       => $arg->{feed},
       newer_than => $arg->{newer_than}
    });
+   warn "Bug events: ".Dumper( \$events->[0] );
 
+   
    # e.g. Feature #7346 (Open): string_replace function
    ok( $events->[0] =~ m/(commented|Created|Changed|Started)
       .*CFE-\d{2,5}.+\Z/ix,
