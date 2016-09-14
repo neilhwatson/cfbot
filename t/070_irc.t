@@ -62,13 +62,13 @@ ok( WIFEXITED( system( "$irc_server -f ./ngircd/ngircd.conf" ) >> 8 )
    , 'IRC server started' );
 
 # Run test bot that will chat to cfbot
-my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 180 });
+my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 600 });
 
 ok( WIFEXITED(
    system( "./daemon.pl -u $user -g $group -di . --de --start" ) >> 8 )
    , 'cfbot started' );
 
-# Kill bots
+# Kill bots after child finishes
 $bot1->recv;
 ok( WIFEXITED( system( "./daemon.pl --di . --stop" ) >> 8), 'cfbot stopped');
 
