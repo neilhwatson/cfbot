@@ -1,4 +1,7 @@
 # cfbot
+
+[![Build Status](https://travis-ci.org/neilhwatson/cfbot.svg?branch=master)](https://travis-ci.org/neilhwatson/cfbot)
+
 An IRC bot for CFEngine channels that allows users to query if for answers.
 
 ## Requirements
