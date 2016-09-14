@@ -66,22 +66,14 @@ sub _test_cfengine_bug_atom_feed {
    my ( $arg ) = @_;
    my $bug_line_regex = qr/
       (commented|Created|Changed|Started) .* CFE-\d{2,5} .+\Z
-   /ixms;
+   /ixm;
 
    my $events = cfbot::atom_feed({
       feed       => $arg->{feed},
       newer_than => $arg->{newer_than}
    });
-   warn "Bug events: ".Dumper( \$events->[0] );
-   my $bug = q{Bug feed: Ole Herman Schumacher Elgesem changed the Assignee to 'Ole Herman Schumacher Elgesem' on CFE-953 - Bootstrap to different tcp port};
-   if ( $bug =~ $bug_line_regex ){
-      warn ">> Match";
-   }
-   else {
-      warn ">> No match";
-   }
    
-   # e.g. Feature #7346 (Open): string_replace function
+   # e.g. commented ... CFE-7346 ... string_replace function
    like( $events->[0], $bug_line_regex, "Was a bug returned?" );
    return;
 }
