@@ -65,8 +65,7 @@ sub _test_bug_number_invalid {
 sub _test_cfengine_bug_atom_feed {
    my ( $arg ) = @_;
    my $bug_line_regex = qr/
-      (commented|Created|Changed|Started)
-      .*CFE-\d{2,5}.+\Z
+      (commented|Created|Changed|Started) .* CFE-\d{2,5} .+\Z
    /ix;
 
    my $events = cfbot::atom_feed({
@@ -74,7 +73,7 @@ sub _test_cfengine_bug_atom_feed {
       newer_than => $arg->{newer_than}
    });
    warn "Bug events: ".Dumper( \$events->[0] );
-   if ( $events->[0] =~ $bug_line_regex, "Was a bug returned?" ){
+   if ( $events->[0] =~ $bug_line_regex ){
       warn ">> Match";
    }
    else {
@@ -83,7 +82,7 @@ sub _test_cfengine_bug_atom_feed {
    
    # e.g. Feature #7346 (Open): string_replace function
    like( $events->[0], $bug_line_regex, "Was a bug returned?" );
-   return 1;
+   return;
 }
 
 
