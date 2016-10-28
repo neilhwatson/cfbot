@@ -47,7 +47,7 @@ my $config = _load_config( $cli_arg_ref->{config} );
 
 if ( $cli_arg_ref->{debug} )
 {
-   $config->{irc}{server}      = 'localhost';
+   # $config->{irc}{server}      = 'localhost';
    $config->{irc}{channels}    = [ '#bottest' ];
    $config->{irc}{username}    = 'cfbot';
    $config->{irc}{name}        = 'cfbot in debug mode';
