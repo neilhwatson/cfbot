@@ -12,7 +12,7 @@ use Perl6::Slurp;
 
 =head1 SYNOPSIS
 
-C<< daemon [-di|--dir <working directory> [-u|--user <user>] [-g|--group <group> [-stat|-stop|-restart] [-d|--debug] >>
+C<< daemon [-di|--dir <working directory> [-u|--user <user>] [-g|--group <group> [-stat|-stop|-restart] [-t|--test] >>
 
 This script starts cfbot.pl as a daemon for normal use.
 
@@ -61,7 +61,7 @@ sub _get_cli_args {
       'start',
       'stop',
       'restart',
-      'debug',
+      'test',
       'dir:s',
       'user:s',
       'group:s',
@@ -126,8 +126,8 @@ my $uid = getpwnam( $args->{user} );
 my $gid = getgrnam( $args->{group} );
 my $exec_command = $args->{dir}."/cfbot.pm";
 
-if ( $args->{debug} ){
-   $exec_command .= ' --debug';
+if ( $args->{test} ){
+   $exec_command .= ' --test';
 }
 my $d = Proc::Daemon->new(
    work_dir     => $args->{dir},

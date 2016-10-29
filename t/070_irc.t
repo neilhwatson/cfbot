@@ -65,7 +65,7 @@ ok( WIFEXITED( system( "$irc_server -f ./ngircd/ngircd.conf" ) >> 8 )
 my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 500 });
 
 ok( WIFEXITED(
-   system( "./daemon.pl -u $user -g $group -di . --de --start" ) >> 8 )
+   system( "./daemon.pl -u $user -g $group -di . --test --start" ) >> 8 )
    , 'cfbot started' );
 
 # Kill bots after child finishes

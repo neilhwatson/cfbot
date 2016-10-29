@@ -45,9 +45,9 @@ my $cli_arg_ref = _get_cli_args();
 # Load config file
 my $config = _load_config( $cli_arg_ref->{config} );
 
-if ( $cli_arg_ref->{debug} )
+if ( $cli_arg_ref->{test} )
 {
-   # $config->{irc}{server}      = 'localhost';
+   $config->{irc}{server}      = 'localhost',
    $config->{irc}{channels}    = [ '#bottest' ];
    $config->{irc}{username}    = 'cfbot';
    $config->{irc}{name}        = 'cfbot in debug mode';
@@ -55,6 +55,17 @@ if ( $cli_arg_ref->{debug} )
    $config->{irc}{port}        = 6667;
    $config->{irc}{ssl}         = 0;
    $config->{wake_interval}    = 5;
+   $config->{newer_than}       = 7500;
+}
+
+if ( $cli_arg_ref->{debug} )
+{
+   $config->{irc}{channels}    = [ '#bottest' ];
+   $config->{irc}{username}    = 'cfbot_test';
+   $config->{irc}{name}        = 'cfbot in test mode';
+   $config->{irc}{nick}        = 'cfbot_test';
+   $config->{wake_interval}    = 5;
+   $config->{irc}{port}        = 6697;
    $config->{newer_than}       = 7500;
 }
 
@@ -713,7 +724,7 @@ C<< -do <dir> >> points to an on disk clone of the CFEngine documentation reposi
 
 =item
 
-C<< -t|--test >> Run developer test suite.
+C<< -t|--test >> For the test suite.
 
 =item
 
