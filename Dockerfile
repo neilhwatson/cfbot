@@ -3,16 +3,18 @@ MAINTAINER  Neil Watson <neil@watson-wilson.ca>
 LABEL site="cfbot"
 LABEL version="1.0"
 
-RUN cpanm Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
-   Mojo::UserAgent Mojo::DOM POE::Component::SSLify
+RUN cpanm POE::Component::SSLify || cat /root/.cpanm/work/*/build.log
+#RUN cpanm Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
+#   Mojo::UserAgent Mojo::DOM Net::SSLeay POE::Component::SSLify \
+#   || cat /root/.cpanm/work/*/build.log
 
-COPY . /var/lib/cfbot
-RUN cd /usr/src/ \
-   && git clone https://github.com/cfengine/documentation.git \
-   && ln -fs /usr/src/documentation /var/lib/cfbot/documentation
+#COPY . /var/lib/cfbot
+#RUN cd /usr/src/ \
+   #&& git clone https://github.com/cfengine/documentation.git \
+   #&& ln -fs /usr/src/documentation /var/lib/cfbot/documentation
 
 WORKDIR /var/lib/cfbot
-CMD [ "perl", "cfbot.pm", "--debug" ]
+#CMD [ "perl", "cfbot.pm", "--debug" ]
 
 # Howto:
 
