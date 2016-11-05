@@ -659,7 +659,7 @@ sub git_feed {
    return;
 }
 
-# Returns recent events from a Redmine atom feed.
+# Returns recent events from bug site feed.
 sub atom_feed {
    my ( $arg ) = @_;
    # Set defaults
@@ -676,6 +676,9 @@ sub atom_feed {
          my $title = Mojo::DOM->new->parse( $e->title )->all_text;
          push @events, 'Bug feed: '.$title .", ". $e->link;
       }
+   }
+   if ( $cli_arg_ref->{debug} ){
+      warn $_ foreach ( @events );
    }
    say $_ foreach ( @events );
    return \@events;
@@ -881,6 +884,7 @@ sub said
 # called sub bound for STDOUT will go to the channel.
 sub forkit {
 # Overriding this one because the original has a bug.
+
    my ( $self, $arg_ref ) = @_;
 
    return if !$arg_ref->{run};
@@ -1000,7 +1004,6 @@ sub tick
       },
    );
 
-   # TODO put these as 'notice'
    for my $e ( @events )
    {
       $self->forkit({
@@ -1014,11 +1017,13 @@ sub tick
 }
 
 sub _fork_notice {
+   warn 'starting fork_notice';
     my ($self, $body, $wheel_id) = @_[OBJECT, ARG0, ARG1];
     chomp $body;    # remove newline necessary to move data;
 
     # pick up the default arguments we squirreled away earlier
     my $args = $self->{forks}{$wheel_id}{args};
+    warn 'fork_notice args are '.Dumper( $args );
     $args->{body} = $body;
 
     $self->notice($args);
