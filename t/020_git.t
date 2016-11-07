@@ -17,7 +17,7 @@ my $config = cfbot::_load_config( 'cfbot.yml' );
 
 _test_git_feed({
    'feed' => $config->{git_feed}, 'owner' => 'cfengine',
-   'repo' => 'core', 'newer_than' => 6500
+   'repo' => 'core', 'newer_than' => 15000
 });
 
 #

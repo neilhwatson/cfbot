@@ -16,8 +16,11 @@ RUN cd /usr/src/ \
    && git clone https://github.com/cfengine/documentation.git \
    && ln -fs /usr/src/documentation /var/lib/cfbot/documentation
 
+RUN useradd neil && chown -R neil:neil /var/lib/cfbot /usr/src/documentation
+USER neil
 WORKDIR /var/lib/cfbot
-CMD [ "perl", "cfbot.pm", "--debug" ]
+
+ENTRYPOINT [ "perl", "cfbot.pm", "--debug" ]
 
 # Howto:
 

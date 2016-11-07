@@ -2,8 +2,6 @@
 
 package cfbot;
 
-use strict;
-use warnings;
 use Carp;
 use Config::YAML;
 use YAML qw/ LoadFile /;
@@ -21,6 +19,8 @@ use XML::Feed;
 use Mojo::UserAgent;
 use Mojo::DOM;
 use feature 'say';
+use strict;
+use warnings;
 
 our $VERSION = 1.0;
 
@@ -803,6 +803,8 @@ use English;
 use Data::Dumper;
 use POE::Session;
 use POE::Kernel;
+use strict;
+use warnings;
 
 # Subs in this package override Bot::BasicBot's own subs.
 
