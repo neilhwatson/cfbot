@@ -24,7 +24,7 @@ _test_words_of_wisdom( 'wow' );
 # Test that words of wisdom returns a string.
 sub _test_words_of_wisdom {
    my $random = shift;
-   my $wow = cfbot::say_words_of_wisdom( $random );
+   my $wow = cfbot::say_words_of_wisdom( 'self', $random );
    ok( $wow =~ m/\w+/, 'Is a string returned?' );
    return;
 }

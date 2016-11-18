@@ -34,7 +34,7 @@ _test_cfengine_bug_atom_feed({
 # Test that get_bug sub returns a bug entry.
 sub _test_bug_exists {
    my $bug = shift;
-   my $msg = cfbot::get_bug( $bug );
+   my $msg = cfbot::get_bug( 'self', $bug );
 
    subtest 'Lookup existing bug' => sub {
       like( $msg->[0], qr|\Q$config->{bug_tracker}$bug\E|
@@ -48,7 +48,7 @@ sub _test_bug_exists {
 # Test that get_bug sub handle an unkown bug properly.
 sub _test_bug_not_found {
    my $bug = shift;
-   my $msg = cfbot::get_bug( $bug );
+   my $msg = cfbot::get_bug( 'self', $bug );
    is( $msg->[0], "Bug [$bug] not found", "Bug not found" );
    return;
 }
@@ -56,7 +56,7 @@ sub _test_bug_not_found {
 # Test that get_bug sub handles an invalid bug number.
 sub _test_bug_number_invalid {
    my $bug = shift;
-   my $msg = cfbot::get_bug( $bug );
+   my $msg = cfbot::get_bug( 'self', $bug );
    is( $msg->[0], "[$bug] is not a valid bug number", "Bug number invalid" );
    return;
 }
@@ -68,7 +68,7 @@ sub _test_cfengine_bug_atom_feed {
       (commented|Created|Changed|Started) .* CFE-\d{2,5} .+\Z
    /sixm;
 
-   my $events = cfbot::atom_feed({
+   my $events = cfbot::atom_feed( 'self', {
       feed       => $arg->{feed},
       newer_than => $arg->{newer_than}
    });
@@ -77,5 +77,3 @@ sub _test_cfengine_bug_atom_feed {
    like( $events->[0], $bug_line_regex, "Was a bug returned?" );
    return;
 }
-
-

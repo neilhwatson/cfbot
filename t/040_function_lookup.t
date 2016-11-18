@@ -27,7 +27,7 @@ _test_function_search_regcmp( 'function regcmp' );
 sub _test_function_search_data_expand {
    my $keyword = shift;
    subtest "Search for function $keyword" => sub {
-      my $reply = cfbot::reply_with_function( $keyword );
+      my $reply = cfbot::reply_with_function( 'self', $keyword );
       ok( $reply =~
          m{
             URL \s+ $config->{cf_docs_url}/reference-functions-\w+\.html
@@ -41,7 +41,7 @@ sub _test_function_search_data_expand {
    };
 
    # Now test anti-spam
-   my $reply = cfbot::reply_with_function( $keyword );
+   my $reply = cfbot::reply_with_function( 'self', $keyword );
    is( $reply, '', "Does not return function a second time" );
    return;
 }
@@ -49,7 +49,7 @@ sub _test_function_search_data_expand {
 # Test that function search returns a url and a description.
 sub _test_function_search_regcmp {
    my $keyword = shift;
-   my $reply = cfbot::reply_with_function( $keyword );
+   my $reply = cfbot::reply_with_function( 'self', $keyword );
    subtest "Search functioin $keyword" => sub {
       ok( $reply =~
          m{

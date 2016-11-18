@@ -481,7 +481,7 @@ sub load_words_of_wisdom {
 # Calls a words of wisdom entry
 sub say_words_of_wisdom
 {
-   my $arg_word = shift;
+   my ( $self, $arg_word ) = @_;
    $arg_word    = 'no' unless defined $arg_word;
    my $message  = q{};
 
@@ -506,7 +506,7 @@ sub say_words_of_wisdom
 
 # Search msg for keywords and return topics.
 sub reply_with_topic {
-   my $msg = shift;
+   my ( $self, $msg ) = @_ ;
    my @replies;
 
    # Build topic keyword index if required.
@@ -548,7 +548,7 @@ sub reply_with_topic {
 }
 
 sub reply_with_function{
-   my $message = shift;
+   my ( $self, $message ) = @_;
    my $reply = '';
 
    # Build index of cfe functions if required.
@@ -579,7 +579,7 @@ END_REPLY
 # Looks up a CFEngine bug from a given number.
 sub get_bug
 {
-   my $bug_number = shift;
+   my ( $self, $bug_number ) = @_;
    my @return;
    my $message = "Unexpected error in retreiving bug $bug_number";
    my $url = $config->{bug_tracker_rest}.$bug_number;
@@ -606,7 +606,7 @@ sub get_bug
 
 # Returns recent events from a github repository.
 sub git_feed {
-   my ( $arg ) = @_;
+   my ( $self, $arg ) = @_;
    # Set defaults
    #                If option given              Use option            Else default
    my $newer_than = exists $arg->{newer_than} ? $arg->{newer_than} : $config->{newer_than};
@@ -661,7 +661,7 @@ sub git_feed {
 
 # Returns recent events from bug site feed.
 sub atom_feed {
-   my ( $arg ) = @_;
+   my ( $self, $arg ) = @_;
    # Set defaults
    my $newer_than = exists $arg->{newer_than}
       ? $arg->{newer_than} : $config->{newer_than};
@@ -802,7 +802,6 @@ use base 'Bot::BasicBot';
 use English;
 use Data::Dumper;
 use POE::Session;
-use POE::Kernel;
 use strict;
 use warnings;
 
@@ -879,56 +878,6 @@ sub said
    # Send a reply if there are any
    $self->reply( $msg, $_ ) foreach ( @{ $replies } );
 
-   return;
-}
-
-# Forks any function provided to this sub via arguments. All output from the
-# called sub bound for STDOUT will go to the channel.
-sub forkit {
-# Overriding this one because the original has a bug.
-
-   my ( $self, $arg_ref ) = @_;
-
-   return if !$arg_ref->{run};
-
-   $arg_ref->{handler}   = $arg_ref->{handler}   || "_fork_said";
-   $arg_ref->{arguments} = $arg_ref->{arguments} || [];
-
-# Install a new handler in the POE kernel pointing to
-# $self->{$args{handler}}
-   $poe_kernel->state( $arg_ref->{handler}, $arg_ref->{callback} || $self  );
-
-   my $run;
-   if (ref($arg_ref->{run}) =~ /^CODE/) {
-     $run = sub {
-         # Remove body from args, possible bug in orginal.
-         $arg_ref->{run}->( @{ $arg_ref->{arguments} })
-     };
-   }
-   else {
-     $run = $arg_ref->{run};
-   }
-   my $wheel = POE::Wheel::Run->new(
-     Program      => $run,
-     StdoutFilter => POE::Filter::Line->new(),
-     StderrFilter => POE::Filter::Line->new(),
-     StdoutEvent  => "$arg_ref->{handler}",
-     StderrEvent  => "fork_error",
-     CloseEvent   => "fork_close"
-   );
-
-# Use a signal handler to reap dead processes
-   $poe_kernel->sig_child($wheel->PID, "got_sigchld");
-
-# Store the wheel object in our bot, so we can retrieve/delete easily.
-   $self->{forks}{ $wheel->ID } = {
-     wheel => $wheel,
-     args  => {
-         channel => $arg_ref->{channel},
-         who     => $arg_ref->{who},
-         address => $arg_ref->{address}
-     }
-   };
    return;
 }
 
@@ -1011,7 +960,7 @@ sub tick
       $self->forkit({
          run       => $e->{name},
          arguments => $e->{arg},
-         channel   => $config->{irc}{channels}[0],
+         channel   => $self->{channels}[0],
          handler   => '_fork_notice',
       });
    }
@@ -1019,13 +968,11 @@ sub tick
 }
 
 sub _fork_notice {
-   warn 'starting fork_notice';
     my ($self, $body, $wheel_id) = @_[OBJECT, ARG0, ARG1];
     chomp $body;    # remove newline necessary to move data;
 
     # pick up the default arguments we squirreled away earlier
     my $args = $self->{forks}{$wheel_id}{args};
-    warn 'fork_notice args are '.Dumper( $args );
     $args->{body} = $body;
 
     $self->notice($args);

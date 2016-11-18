@@ -27,7 +27,7 @@ _test_git_feed({
 # Test that git feed returns at least one correct entry.
 sub _test_git_feed {
    my ( $arg ) = @_;
-   my $events = cfbot::git_feed( $arg );
+   my $events = cfbot::git_feed( 'self', $arg );
    ok( $events->[0] =~ m/\APull|Push/, 'Did an event return?' );
    return;
 }

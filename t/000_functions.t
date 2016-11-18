@@ -32,12 +32,12 @@ sub _test_topic_lookup {
    my $keyword = shift;
 
    subtest "Lookup topic and test for anti-spam" => sub {
-      my $topics = cfbot::reply_with_topic( $keyword );
+      my $topics = cfbot::reply_with_topic( 'self', $keyword );
       is( $topics->[0],
          "This topic is for testing the cfbot. Do not remove.",
          "Testing a topic lookup"
       );
-      $topics = cfbot::reply_with_topic( $keyword );
+      $topics = cfbot::reply_with_topic( 'self', $keyword );
          ok( ! defined $topics->[0],
             "Does not return test topic the second time"
          );
