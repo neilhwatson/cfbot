@@ -9,8 +9,6 @@ use Cwd;
 use Data::Dumper;
 use English;
 use Getopt::Long;
-use HTTP::Tiny;
-use JSON;
 use Cache::FastMmap;
 use Pod::Usage;
 use Test::More; 
@@ -615,19 +613,16 @@ sub git_feed {
    my $feed       = $arg->{feed};
    
    my @events;
-   my $client = HTTP::Tiny->new();
-   my $response = $client->get( "$feed/$owner/$repo/events" );
 
-   my $j = JSON->new->pretty->allow_nonref;
-   my $events = $j->decode( $response->{content} );
+   my $url     = "$feed/$owner/$repo/events";
+   my $ua      = Mojo::UserAgent->new();
+   my $replies = $ua->get( $url )->res->json;
 
-   for my $e ( @{ $events } )
-   {
+   for my $e ( @{ $replies } ) {
       next unless time_cmp({ time => $e->{created_at}, newer_than => $newer_than });
 
       my $msg;
-      if ( $e->{type} eq 'PushEvent' and $owner !~ m/\Acfengine\Z/i )
-      {
+      if ( $e->{type} eq 'PushEvent' and $owner !~ m/\Acfengine\Z/i ) {
          my $message = substr( $e->{payload}{commits}->[0]{message}, 0, 60 );
          $msg = "Push in $owner:$repo by $e->{actor}{login}, $message..., ".
             "https://github.com/$owner/$repo/commit/$e->{payload}{head}";
