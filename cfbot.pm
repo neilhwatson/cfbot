@@ -664,7 +664,7 @@ sub atom_feed {
    my @events;
 
    my $xml = XML::Feed->parse( URI->new( $feed )) or
-      croak "Feed error with [$feed] ".XML::Feed->errstr;
+   croak "Feed error with [$feed] ".XML::Feed->errstr;
 
    for my $e ( $xml->entries ) {
       if ( time_cmp({ time => $e->updated, newer_than => $newer_than }) ) {
