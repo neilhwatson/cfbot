@@ -1,21 +1,15 @@
 language: perl
-perl:
-   - '5.16'
-   - '5.18'
-   - '5.20'
-   - '5.22'
-
-install:
-   - cpanm -n Test::More Bot::BasicBot Perl6::Slurp AnyEvent::Util HTTP::Tiny
-   - cpanm -n Cache::FastMmap Web::Query XML::Feed Config::YAML JSON 
-   - cpanm -n Mojolicious Git::Repository
-   - sudo apt-get install ngircd 
-   - chmod -R g-w .
-
-script:
-   - prove
 
 sudo: required
+
+services:
+  - docker
+
+before_install:
+  - docker build . -t cfbot -f Dockerfile-testing
+
+script:
+  -  docker run --rm -i --name cfbot -t cfbot
 
 notifications:
    - email: false
