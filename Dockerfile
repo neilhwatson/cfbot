@@ -23,7 +23,8 @@ RUN apt-get update && apt-get -y install ngircd
 #
 
 RUN useradd cfbot -d /var/lib/cfbot \
-   && chown -R cfbot:cfbot /var/lib/cfbot 
+   && chown -R cfbot:cfbot /var/lib/cfbot \
+   && chmod -R g-w,o-w /var/lib/cfbot
 USER cfbot
 WORKDIR /var/lib/cfbot
 
