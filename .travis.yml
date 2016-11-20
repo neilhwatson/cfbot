@@ -8,8 +8,10 @@ services:
 before_install:
   - docker build . -t cfbot -f Dockerfile-testing
 
+install: true
+
 script:
-  -  docker run --rm -i --name cfbot -t cfbot
+  - docker run --rm -i --name cfbot -t cfbot
 
 notifications:
    - email: false
