@@ -6,10 +6,9 @@ perl:
    - '5.22'
 
 install:
-   - git clone https://github.com/cfengine/documentation.git
    - cpanm -n Test::More Bot::BasicBot Perl6::Slurp AnyEvent::Util HTTP::Tiny
    - cpanm -n Cache::FastMmap Web::Query XML::Feed Config::YAML JSON 
-   - cpanm -n Proc::Daemon Mojolicious
+   - cpanm -n Mojolicious Git::Repository
    - sudo apt-get install ngircd 
    - chmod -R g-w .
 
