@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 
-use strict;
-use warnings;
 use AnyEvent;
 use AnyEvent::Util;
-use Test::More tests => 14;
+use Test::More tests => 12;
 use Perl6::Slurp;
 use Carp qw/ croak carp/;
 use POSIX qw/ WIFEXITED /;
+use strict;
+use warnings;
 
 =pod
 
@@ -19,9 +19,6 @@ then testes for the right responses.
 
 =cut
 
-# The log of the test bot interaction
-my $log = 'testing.log';
-
 #
 # Subs
 #
@@ -32,11 +29,14 @@ sub fork_bot {
    my $cv = AnyEvent::Util::run_cmd(
       $arg->{bot},
       '$$' => \$pid,
-   );
-   my $w; $w = AE::timer(
-      $arg->{runtime}, 0,
+   ) or croak $!;
+
+   my $w;
+   $w = AE::timer(
+      $arg->{runtime},
+      0,
       sub {
-         print "Killing $arg->{runtime} - timeout\n";
+         warn "Killing $arg->{runtime} - timeout\n";
          kill 1, $pid;
          $w = undef;
       }
@@ -50,27 +50,30 @@ sub fork_bot {
 
 carp "Starting the bot for testing. This will take some time...";
 
+# The log of the test bot interaction
+my $log = 'testing.log';
+
 # Start irc server for testing
-my $user            = getlogin;
-my $group           = (getpwuid( $< ))[0];
+my $runtime         = 195;
 my $irc_server      = '/usr/sbin/ngircd';
 my $server_pid_file = '/tmp/ngircd.pid';
 
+if ( -e $log ) {
+   unlink $log or croak "Cannot remove old $log [$!]";
+}
 unlink $server_pid_file if -e $server_pid_file;
 ok( -x $irc_server, "Test irc server exists" );
 ok( WIFEXITED( system( "$irc_server -f ./ngircd/ngircd.conf" ) >> 8 )
    , 'IRC server started' );
 
+# Run  cfbot
+my $bot1 = fork_bot({ bot => [qw{perl cfbot.pm --test}], runtime => $runtime });
 # Run test bot that will chat to cfbot
-my $bot1 = fork_bot({ bot => ['./cfbot_tester.pm'], runtime => 300 });
-
-ok( WIFEXITED(
-   system( "./daemon.pl -u $user -g $group -di . --test --start" ) >> 8 )
-   , 'cfbot started' );
+my $bot2 = fork_bot({ bot => [qw{perl cfbot_tester.pm}], runtime => $runtime });
 
 # Kill bots after child finishes
 $bot1->recv;
-ok( WIFEXITED( system( "./daemon.pl --di . --stop" ) >> 8), 'cfbot stopped');
+$bot2->recv;
 
 # Kill server from pid
 if ( -e $server_pid_file ) {

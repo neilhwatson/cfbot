@@ -16,8 +16,8 @@ RUN cd /usr/src/ \
    && git clone https://github.com/cfengine/documentation.git \
    && ln -fs /usr/src/documentation /var/lib/cfbot/documentation
 
-RUN useradd neil && chown -R neil:neil /var/lib/cfbot /usr/src/documentation
-USER neil
+RUN useradd cfbot && chown -R cfbot:cfbot /var/lib/cfbot /usr/src/documentation
+USER cfbot
 WORKDIR /var/lib/cfbot
 
 ENTRYPOINT [ "perl", "cfbot.pm"  ]

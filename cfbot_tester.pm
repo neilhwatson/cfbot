@@ -9,9 +9,9 @@ test suite will test for the correct replies.
 
 =cut 
 
+use Carp 'croak';
 use strict;
 use warnings;
-use Carp 'croak';
 
 my $bot = cfbot_tester->new(
    server   => 'localhost',
@@ -30,6 +30,8 @@ $bot->run;
 package cfbot_tester;
 use Carp;
 use base 'Bot::BasicBot';
+use strict;
+use warnings;
 
 sub log {
 	my $self = shift;
