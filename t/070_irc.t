@@ -54,7 +54,7 @@ carp "Starting the bot for testing. This will take some time...";
 my $log = 'testing.log';
 
 # Start irc server for testing
-my $runtime         = 200;
+my $runtime         = 300;
 my $irc_server      = '/usr/sbin/ngircd';
 my $server_pid_file = '/tmp/ngircd.pid';
 
