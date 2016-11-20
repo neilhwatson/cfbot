@@ -707,7 +707,7 @@ sub atom_feed {
 #
 
 sub run{
-   my $bot = Cfbot->new( %{ $config->{irc} } )->run;
+   my $bot = Bot->new( %{ $config->{irc} } )->run;
 }
 
 # Start the bot
@@ -815,7 +815,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # Packages
 #
 
-package Cfbot;
+package Bot;
 use base 'Bot::BasicBot'; 
 use English;
 use Data::Dumper;
