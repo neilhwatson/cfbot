@@ -1,7 +1,13 @@
+# Use this file to run the test suite.
+
 FROM  perl:5.24
 MAINTAINER  Neil Watson <neil@watson-wilson.ca>
 LABEL site="cfbot"
 LABEL version="1.0"
+
+# For testing only
+RUN cpanm AnyEvent Perl6::Slurp
+#
 
 RUN cpanm Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
    Mojo::UserAgent Mojo::DOM Net::SSLeay IO::Socket::SSL LWP::Protocol::https \
@@ -12,16 +18,17 @@ RUN cpanm --force  POE::Component::SSLify
 
 COPY . /var/lib/cfbot
 
-# TODO have bot pull this down and keep it up to date
-RUN cd /usr/src/ \
-   && git clone https://github.com/cfengine/documentation.git \
-   && ln -fs /usr/src/documentation /var/lib/cfbot/documentation
+# For testing only
+RUN apt-get update && apt-get -y install ngircd
+#
 
-RUN useradd cfbot && chown -R cfbot:cfbot /var/lib/cfbot /usr/src/documentation
+RUN useradd cfbot -d /var/lib/cfbot \
+   && chown -R cfbot:cfbot /var/lib/cfbot 
 USER cfbot
 WORKDIR /var/lib/cfbot
 
 ENTRYPOINT [ "perl", "cfbot.pm"  ]
+#
 
 # Howto:
 
