@@ -9,6 +9,7 @@ use Cwd;
 use Data::Dumper;
 use English;
 use Getopt::Long;
+use Git::Repository;
 use Cache::FastMmap;
 use Pod::Usage;
 use Test::More; 
@@ -96,10 +97,6 @@ sub _get_cli_args
       home      => {
          constraint => \&_valid_filename_in_cli_args,
          error      => "home arg is invalid",
-      },
-      docs_repo => {
-         constraint => \&_valid_filename_in_cli_args,
-         error      => "docs_repo arg is invalid",
       },
       config    => {
          constraint => \&_valid_filename_in_cli_args,
@@ -575,8 +572,7 @@ END_REPLY
 }
 
 # Looks up a CFEngine bug from a given number.
-sub get_bug
-{
+sub get_bug {
    my ( $self, $bug_number ) = @_;
    my @return;
    my $message = "Unexpected error in retreiving bug $bug_number";
@@ -600,6 +596,33 @@ sub get_bug
    push @return, $message;
    say $_ foreach ( @return );
    return \@return;
+}
+
+# TODO call this from tick sub
+sub git_repo {
+   my ( $self, $arg ) = @_;
+
+   # If work dir exists try to reset and pull
+   if ( -d -r -w $arg->{dir} ){
+      my $r = Git::Repository->new( work_tree => $arg->{dir} );
+      if ( $r ){
+         $r->run( reset => '--hard', 'HEAD' );
+         $r->run( 'pull' );
+      }
+
+      # Something is wrong remove it and try again
+      else {
+         rmdir $arg->{dir}
+      }
+   }
+   # target dir is a file, remove it
+   elsif ( -f $arg->{dir} ) {
+      unlink $arg->{dir}
+   }
+   # Clone new
+   else {
+      Git::Repository->run( clone => $arg->{repo_url} );
+   }
 }
 
 # Returns recent events from a github repository.
@@ -888,6 +911,13 @@ sub tick
    return 60 if ( $now < $hush );
 
    my @events = (
+      {
+         name => \&cfbot::git_repo,
+         arg  => [{
+            repo_url => $config->{documentation},
+            dir      => 'documentation',
+         }]
+      },  
       {
          name => \&cfbot::atom_feed,
          arg  => [{ 'feed' => "$config->{bug_feed}" }]

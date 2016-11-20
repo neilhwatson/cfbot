@@ -13,6 +13,7 @@ irc:
   ssl: 1
   useipv6: 1
 
+documentation: https://github.com/cfengine/documentation
 bug_tracker: "https://tracker.mender.io/browse/CFE-"
 bug_tracker_rest: "https://tracker.mender.io/rest/api/2/issue/CFE-"
 bug_feed: "https://tracker.mender.io/activity"

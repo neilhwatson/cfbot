@@ -4,7 +4,8 @@ LABEL site="cfbot"
 LABEL version="1.0"
 
 RUN cpanm Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
-   Mojo::UserAgent Mojo::DOM Net::SSLeay IO::Socket::SSL LWP::Protocol::https
+   Mojo::UserAgent Mojo::DOM Net::SSLeay IO::Socket::SSL LWP::Protocol::https \
+   Git::Repository
 # Force this install because of bug:
 # https://rt.cpan.org/Public/Bug/Display.html?id=118548
 RUN cpanm --force  POE::Component::SSLify
