@@ -38,7 +38,7 @@ ENTRYPOINT [ "perl", "cfbot.pm"  ]
 # View with docker images
 
 # Docker file
-# docker run --cap-drop=all --detach --name cfbot -t cfbot
+# docker run --cap-drop=all --restart=unless-stopped --detach --name cfbot -t cfbot
 
 # Stop with
 # docker stop $(docker ps |awk '$2 ~ /^cfbot/ { print $1 }')
