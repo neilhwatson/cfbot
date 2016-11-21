@@ -11,7 +11,7 @@ before_install:
 install: true
 
 script:
-  - docker run --rm -i --env 'PERL5LIB=.' --entrypoint prove --name cfbot -t cfbot
+  - docker run --drop-cap=all --rm -i --env 'PERL5LIB=.' --entrypoint prove --name cfbot -t cfbot
 
 notifications:
    - email: false
