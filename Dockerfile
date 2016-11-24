@@ -5,31 +5,14 @@ MAINTAINER  Neil Watson <neil@watson-wilson.ca>
 LABEL site="cfbot"
 LABEL version="1.0"
 
-# For testing only
-RUN cpanm AnyEvent Perl6::Slurp
-#
-
-RUN cpanm Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
-   Mojo::UserAgent Mojo::DOM Net::SSLeay IO::Socket::SSL LWP::Protocol::https \
-   Git::Repository
-# Force this install because of bug:
-# https://rt.cpan.org/Public/Bug/Display.html?id=118548
-RUN cpanm --force  POE::Component::SSLify
-
 COPY . /var/lib/cfbot
 
-# For testing only
-RUN apt-get update && apt-get -y install ngircd
-#
+RUN /var/lib/cfbot/install.sh
 
-RUN useradd cfbot -d /var/lib/cfbot \
-   && chown -R cfbot:cfbot /var/lib/cfbot \
-   && chmod -R g-w,o-w /var/lib/cfbot
 USER cfbot
 WORKDIR /var/lib/cfbot
 
 ENTRYPOINT [ "perl", "cfbot.pm"  ]
-#
 
 # Howto:
 
