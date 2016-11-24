@@ -7,7 +7,7 @@ perl_packages="Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
 
 for next_p in $perl_packages
 do
-   { TEST_JOBS=2 cpanm ${next_p}; } &
+   { TEST_JOBS=2 cpanm --verbose ${next_p}; } &
 done
 
 { apt-get update && apt-get -y install ngircd && apt-get clean; } &
