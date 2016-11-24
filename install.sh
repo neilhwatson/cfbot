@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/bash 
 
 perl_packages="Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
    Mojo::UserAgent Mojo::DOM Net::SSLeay IO::Socket::SSL \
@@ -7,14 +7,16 @@ perl_packages="Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
 
 for next_p in $perl_packages
 do
-   { TEST_JOBS=2 cpanm --verbose ${next_p}; } &
+   { TEST_JOBS=2 cpanm ${next_p}; } &
 done
 
 { apt-get update && apt-get -y install ngircd && apt-get clean; } &
 
 { useradd cfbot -d /var/lib/cfbot && chown -R cfbot:cfbot /var/lib/cfbot && chmod -R g-w,o-w /var/lib/cfbot; } &
 
+echo ************ waiting 
 wait
+echo ************ background tasks completed 
 
 # Note cpanm force used because of this bug: 
 # https://rt.cpan.org/Public/Bug/Display.html?id=118548 
