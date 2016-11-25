@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash -x
 
 perl_packages="Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
    Mojo::UserAgent Mojo::DOM Net::SSLeay IO::Socket::SSL \
