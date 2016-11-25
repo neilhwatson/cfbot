@@ -1,5 +1,8 @@
 #!/bin/bash -x
 
+timeout=3600
+cpanm="cpanm --configure-timeout $timeout --build-timeout $timeout --test-timeout $timeout"
+
 perl_packages="Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
    Mojo::UserAgent Mojo::DOM Net::SSLeay IO::Socket::SSL \
    LWP::Protocol::https Git::Repository \
@@ -7,7 +10,7 @@ perl_packages="Config::YAML JSON Bot::BasicBot Cache::FastMmap XML::Feed \
 
 for next_p in $perl_packages
 do
-   { TEST_JOBS=2 cpanm ${next_p}; } &
+   { TEST_JOBS=2 $cpanm ${next_p}; } &
 done
 
 { apt-get update && apt-get -y install ngircd && apt-get clean; } &
@@ -20,7 +23,7 @@ echo ************ background tasks completed
 
 # Note cpanm force used because of this bug: 
 # https://rt.cpan.org/Public/Bug/Display.html?id=118548 
-TEST_JOBS=2 cpanm --notest POE::Component::SSLify
+TEST_JOBS=2 $cpanm --notest POE::Component::SSLify
 
 # Troubles with this one, but works of last
-TEST_JOBS=2 cpanm AnyEvent && rm -fr /root/.cpan*
+TEST_JOBS=2 $cpanm AnyEvent && rm -fr /root/.cpan*
