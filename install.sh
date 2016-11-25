@@ -1,5 +1,6 @@
-#!/bin/bash -x
+#!/bin/bash
 
+# Set these timeouts because travis-ci env is slower than my laptop.
 timeout=3600
 cpanm="cpanm --configure-timeout $timeout --build-timeout $timeout --test-timeout $timeout"
 
