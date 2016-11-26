@@ -3,7 +3,6 @@
 FROM  perl:5.24
 MAINTAINER  Neil Watson <neil@watson-wilson.ca>
 LABEL site="cfbot"
-LABEL version="1.0"
 
 COPY . /var/lib/cfbot
 
