@@ -8,6 +8,7 @@ Test cfbot git feed.
 
 =cut
 
+use lib '.';
 use Test::More tests => 5;
 use File::Fetch;
 use Digest::file qw{ digest_file_hex };

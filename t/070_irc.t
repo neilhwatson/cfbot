@@ -1,5 +1,6 @@
 #!/usr/bin/env perl
 
+use lib '.';
 use AnyEvent;
 use AnyEvent::Util;
 use Test::More tests => 12;

@@ -8,6 +8,7 @@ Test cfbot bug lookup and feed functions
 
 =cut
 
+use lib '.';
 use strict;
 use warnings;
 use Test::More tests => 4;

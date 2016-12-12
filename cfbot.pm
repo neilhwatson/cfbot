@@ -692,6 +692,12 @@ sub atom_feed {
    for my $e ( $xml->entries ) {
       if ( time_cmp({ time => $e->updated, newer_than => $newer_than }) ) {
          my $title = Mojo::DOM->new->parse( $e->title )->all_text;
+
+         # Strip extra white space collected from the parsing
+         $title =~ s/\s+/ /smg;
+         # Trim trailing whitespace
+         $title =~ s/\s\Z//smg;
+
          push @events, 'Bug feed: '.$title .", ". $e->link;
       }
    }

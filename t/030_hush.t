@@ -8,6 +8,7 @@ Test cfbot hush feature.
 
 =cut
 
+use lib '.';
 use strict;
 use warnings;
 use Test::More tests => 2;

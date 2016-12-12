@@ -8,6 +8,7 @@ Test cfbot mgs body trigger regular expressions.
 
 =cut
 
+use lib '.';
 use strict;
 use warnings;
 use English;

@@ -8,6 +8,7 @@ Test cfbot CFEngine function lookup.
 
 =cut
 
+use lib '.';
 use strict;
 use warnings;
 use Test::More tests => 3;

@@ -8,6 +8,7 @@ Test cfbot CFEngine words of wisdom.
 
 =cut
 
+use lib '.';
 use strict;
 use warnings;
 use Test::More tests => 1;
