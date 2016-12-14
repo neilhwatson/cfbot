@@ -162,3 +162,7 @@
    - regular expression
    - regex
   topic: CFEngine uses PCRE flavoured regular expressions. Here's a cheatsheet: http://watson-wilson.ca/blog/2013/05/09/pcre-cheatsheet/ and here's an example of good regex style in CFEngine: http://watson-wilson.ca/blog/2015/08/20/build-better-regular-expressions-in-cfengine/ 
+
+- keywords:
+   - nightly builds
+  topic: Nightly builds for cfengine core can be found here: http://builds.cfengine.com/pub/nightly/
