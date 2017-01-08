@@ -92,3 +92,18 @@ Changed in 3.9: filestat(path, "linktarget") now follows non-absolute links and 
 Changed in 3.9: (bootstrap|failsafe)_mode during update.cf when triggered from failsafe.cf
 Changed in 3.9: readintlist(), readreallist(), readstringlist(): parsing an empty file is not a failure, just an empty list
 New in 3.9: classes: "foo"; # no need for "expression => 'any'"--this is always defined
+New in 3.10: eval() supports < <= > >=
+New in 3.10: testing jUnit and TAP bundles in the standard library
+New in 3.10: isipinsubnet() function to see if an IP matches a subnet
+New in 3.10: edit_line body contains_literal_string in standard library
+New in 3.10: variablesmatching_as_data() function like variablesmatching() but returns all data *contents* in a container
+New in 3.10: specify agent maxconnections and append to bundlesequence via def.json
+New in 3.10: getuserinfo() function to describe a user account
+New in 3.10: sys.user_data container for user starting agent (same format as getuserinfo())
+New in 3.10: allow maplist(), maparray(), and mapdata() to evaluate function calls during iteration, behaving like a true functional map
+Changed in 3.10: iteration engine improvements and cf_null eradicated (test your old policies!)
+Changed in 3.10: services promises can use any string as the service state
+Changed in 3.10: strict transport security enabled
+Changed in 3.10: getvariablemetatags() and getclassmetatags() take an optional second argument to get a specific tag key
+Changed in 3.10: sys.user_data container for user starting agent.  
+Changed in 3.10: allow ifelse(FALSE, $(x), "something else") to work, even if x is not defined
