@@ -394,7 +394,9 @@ sub _get_msg_regexes {
       },
       function =>
       {
-         regex => qr/(\w* \s* function \s* \w*)/xmsi,
+         regex => qr/(
+                        \w* \s* \bfunction\b \s* \w*
+                     )/xmsi,
          input  => [
             "!$config->{irc}{nick}: function data_expand",
             "function data_expand",

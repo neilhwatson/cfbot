@@ -35,8 +35,12 @@ sub _test_body_regex {
 
             ok( $next_input =~ $irc_regex->{$next_msg}->{regex}
                , "Does regex match message body?" );
+
+             #warn "captured [$LAST_PAREN_MATCH]";
+
             ok( $LAST_PAREN_MATCH =~ $irc_regex->{$next_msg}->{capture}
-               , "Is the correct string captured?" );
+               , "Is the correct string captured? "
+               ."Expecting [$irc_regex->{$next_msg}->{capture}]" );
          }
       }
    }
