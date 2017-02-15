@@ -4,10 +4,6 @@ FROM  perl:5.24
 MAINTAINER  Neil Watson <neil@watson-wilson.ca>
 LABEL site="cfbot"
 
-COPY . /var/lib/cfbot
-RUN useradd cfbot -d /var/lib/cfbot && chown -R cfbot:cfbot /var/lib/cfbot \
-   && chmod -R g-w,o-w /var/lib/cfbot
-
 RUN apt-get update && apt-get -y install ngircd && apt-get clean
 
 RUN cpanm --configure-timeout 3600 --build-timeout 3600 --test-timeout 3600 \
@@ -22,6 +18,9 @@ RUN cpanm --configure-timeout 3600 --build-timeout 3600 --notest \
 RUN cpanm --configure-timeout 3600 --build-timeout 3600 --test-timeout 3600 \
    AnyEvent
 
+COPY . /var/lib/cfbot
+RUN useradd cfbot -d /var/lib/cfbot && chown -R cfbot:cfbot /var/lib/cfbot \
+   && chmod -R g-w,o-w /var/lib/cfbot
 USER cfbot
 WORKDIR /var/lib/cfbot
 
