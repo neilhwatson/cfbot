@@ -76,5 +76,12 @@ sub _test_cfengine_bug_atom_feed {
    
    # e.g. commented ... CFE-7346 ... string_replace function
    like( $events->[0], $bug_line_regex, "Was a bug returned?" );
+
+   for my $next_event ($events){
+      if ( $next_event =~ m/MEN-/ ){
+         die "Found MEN bug in bug feed";
+      }
+   }
+
    return;
 }

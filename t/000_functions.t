@@ -11,11 +11,12 @@ Test cfbot functions
 use lib '.';
 use strict;
 use warnings;
-use Test::More tests => 2;
+use Test::More tests => 3;
 require cfbot;
 
 _test_doc_help( 'cfbot.pm' );
 _test_topic_lookup( 'Test topic' );
+_test_canonify();
 
 #
 # Subs
@@ -46,3 +47,10 @@ sub _test_topic_lookup {
    return;
 }
 
+sub _test_canonify{
+
+   my $string = "this is a 45 *.()string";
+   my $result = "this_is_a_45_____string";
+   
+   is( cfbot::canonify('self', $string), $result, "Was string canonified" );
+}

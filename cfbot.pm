@@ -422,6 +422,16 @@ sub _get_msg_regexes {
          ],
          capture => qr/$wisdom_trigger_words/i,
       },
+      canonify =>
+      {
+         regex => qr/cfbot :? \s+ canonify \s+ (.*)/xmsi,
+         input => [
+            "$config->{irc}{nick}: canonify foobar",
+            "$config->{irc}{nick}: canonify foo-bar",
+            "$config->{irc}{nick} canonify ". 'foo $#&( bar',
+         ],
+         capture => qr/foo.*/msxi,
+      },
    );
 
    return \%irc_regex;
@@ -598,6 +608,18 @@ sub get_bug {
    push @return, $message;
    say $_ foreach ( @return );
    return \@return;
+}
+
+sub canonify{
+   my ( $self, $string ) = @_;
+
+   if ($string !~ m/\A \s* \Z/msix ){
+      ( my $canonified_string = $string ) =~ s/\W/_/g;
+      say "String [$string] canonified to [$canonified_string]. See canonify";
+      return $canonified_string;
+
+   }
+   return
 }
 
 # TODO call this from tick sub
@@ -865,6 +887,11 @@ sub said
          name  => 'function search',
          regex => $irc_regex->{function}{regex},
          run   => \&cfbot::reply_with_function,
+      },
+      {
+         name  => 'canonify',
+         regex => $irc_regex->{canonify}{regex},
+         run   => \&cfbot::canonify,
       },
       {
          name  => 'wow',

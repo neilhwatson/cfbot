@@ -3,7 +3,7 @@
 use lib '.';
 use AnyEvent;
 use AnyEvent::Util;
-use Test::More tests => 12;
+use Test::More tests => 13;
 use Perl6::Slurp;
 use Carp qw/ croak carp/;
 use POSIX qw/ WIFEXITED /;
@@ -149,3 +149,5 @@ like( $chat_log, qr% \n
    )
    %msx,
    'Returned hushing message' );
+
+like( $chat_log, qr/this_is_a_45_____string/msi, "Canonified string" );

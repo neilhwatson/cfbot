@@ -59,6 +59,9 @@ sub tick {
       'bug xxxxx','#484', '#999999', 
       'function data_expand',
       'function regcmp',
+      'cfbot canonify this is a 45 *.()string',
+
+      # Hush must be last
       'cfbot: hush',
    );
 

@@ -33,6 +33,7 @@ sub _test_body_regex {
       for my $next_input ( @{ $irc_regex->{$next_msg}->{input} } ) {
          subtest "Testing body matching regexes for [$next_msg]" => sub {
 
+            # warn "Input test: [$next_input]";
             ok( $next_input =~ $irc_regex->{$next_msg}->{regex}
                , "Does regex match message body?" );
 
