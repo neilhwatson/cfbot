@@ -11,6 +11,12 @@
   topic: Cfengine_el is an EMACS plugin to edit your CFEngine code: https://github.com/cfengine/core/blob/master/contrib/cfengine.el
 
 - keywords:
+   - spacemacs
+   - policy editor
+   - ide
+  topic: Spacemacs (emacs with vim keybindings) includes a cfengine layer enabling syntax highlighting and on the fly syntax checking, auto-completion, and function prototyping http://spacemacs.org/layers/+tools/cfengine/README.html
+
+- keywords:
    - best practices
   topic: CFEngine best practices: http://watson-wilson.ca/blog/tag/best-practices/ and https://github.com/atsaloli/cf-health-check
 
