@@ -4,16 +4,17 @@
   topic: Using Cfbot: Function lookup: <name> function or function <name>. Help for help. #nnnn or bug #nnnn for bug number. Say any key word and cfbot will answer if it knows something about that word. Hush to silence me for 5min. Contribute: https://github.com/neilhwatson/cfbot.
 
 - keywords:
-   - emacs
-   - cfengine_el
    - policy editor
    - ide
+  topic: Editors and plugins to help you develop CFEngine policy: ask me about emacs, spacemacs, and vim
+
+- keywords:
+   - emacs
+   - cfengine_el
   topic: Cfengine_el is an EMACS plugin to edit your CFEngine code: https://github.com/cfengine/core/blob/master/contrib/cfengine.el
 
 - keywords:
    - spacemacs
-   - policy editor
-   - ide
   topic: Spacemacs (emacs with vim keybindings) includes a cfengine layer enabling syntax highlighting and on the fly syntax checking, auto-completion, and function prototyping http://spacemacs.org/layers/+tools/cfengine/README.html
 
 - keywords:
@@ -109,8 +110,6 @@
 - keywords:
    - vim
    - vim_cf3
-   - policy editor
-   - ide
   topic: Vim_cf3 Is a VIM plugin for editing CFEngine code: https://github.com/neilhwatson/vim_cf3 
 
 - keywords:
