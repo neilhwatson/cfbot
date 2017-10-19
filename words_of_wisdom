@@ -107,3 +107,4 @@ Changed in 3.10: strict transport security enabled
 Changed in 3.10: getvariablemetatags() and getclassmetatags() take an optional second argument to get a specific tag key
 Changed in 3.10: sys.user_data container for user starting agent.  
 Changed in 3.10: allow ifelse(FALSE, $(x), "something else") to work, even if x is not defined
+New in 3.11: `with` attribute added to help avoid unnecessary intermediary variables
