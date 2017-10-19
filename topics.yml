@@ -7,7 +7,7 @@
    - policy editor
    - ide
   topic: Editors and plugins to help you develop CFEngine policy: ask me about emacs, spacemacs, and vim
-  
+
 - keywords:
    - emacs
    - cfengine_el
