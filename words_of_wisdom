@@ -3,6 +3,7 @@ Don't write your own CFEngine policy, use existing frameworks and save time.
 A self healing infrastructure means more uninterrupted vacation time.
 Use vim_cf3 to edit your CFEngine policy in VIM: https://github.com/neilhwatson/vim_cf3
 Use cfengine.el to edit your CFEngine in Emacs: comes with Emacs, or use https://github.com/cfengine/core/blob/master/contrib/cfengine.el
+Use the cfengine layer in spacemacs to edit policy. Have the best of both vim and emacs: http://spacemacs.org/layers/+tools/cfengine/README.html
 A mistake in your CFEngine policy is a mistake duplicated over a thousand hosts. Fully test your policy.
 A well crafted cron script can rescue a broken CFEngine agent.
 Third party CFEngine consultants: http://www.verticalsysadmin.com/cfengine/ps.htm
