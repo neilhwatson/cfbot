@@ -7,9 +7,8 @@ Use the cfengine layer in spacemacs to edit policy. Have the best of both vim an
 A mistake in your CFEngine policy is a mistake duplicated over a thousand hosts. Fully test your policy.
 A well crafted cron script can rescue a broken CFEngine agent.
 Third party CFEngine consultants: http://www.verticalsysadmin.com/cfengine/ps.htm
-A CFEngine blog: http://cfengine.com/blog/
 A CFEngine blog: http://watson-wilson.ca/blog/tag/cfengine/
-A CFEngine blog: http://www.cmdln.org/tag/cfengine/
+A CFEngine blog: http://www.cmdln.org/tags/cfengine/
 A CFEngine blog: http://syslog.me/tag/cfengine/
 A primer on autorunning your CFEngine policies: https://digitalelf.net/2014/07/a-primer-on-cfengine-3-dot-6-autorun/
 Promising a whole file is better than promising a portion of it.
