@@ -181,40 +181,9 @@ sub _valid_filename_in_cli_args {
          warn "[$file_name] not valid";
          return;
       }
-      unless ( _user_owns( $file_name ) ) {
-         warn "User must own [$file_name]";
-         return;
-      }
-      unless ( _file_not_gw_writable( $file_name ) ) {
-         warn "[$file_name] must not be group or world writable";
-         return;
-      }
-
       return 1;
    };
 
-
-# Test that running user owns a file
-sub _user_owns {
-   my $file_name = shift;
-
-   return unless -O $file_name;
-   return 1;
-}
-
-# Test for group or world writable files.
-sub _file_not_gw_writable {
-   my $file_name = shift;
-   my @f         = stat( $file_name )
-      or croak "Cannot open file [$file_name]";
-   my $mode = $f[2] & oct(777);
-
-   if ( $mode & oct(22) )
-   {
-      return;
-   }
-   return 1;
-}
 
 # Test if keyword has been recently checked. Used to prevent cfbot from
 # spamming the channel. Returns true if keyword has been used recently.
