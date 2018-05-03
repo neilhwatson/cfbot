@@ -76,14 +76,14 @@
 
 - keywords:
    - Frameworks
-  topic: NCF and EFL are two third party policy frameworks for CFEngine designed to extend or replace the default MPF. Both are designed to help users get more work done in a shorter time frame. See EFL, MPF, and NCF for more information.
+  topic: NCF, EFL and SCL are three third party policy frameworks for CFEngine designed to extend or replace the default MPF. Both are designed to help users get more work done in a shorter time frame. See EFL, MPF, NCF and SCL for more information.
 
 - keywords:
    - mpf
    - masterfiles policy
    - policy framework
    - promise framework
-  topic: The Masterfiles Policy Framework is the default policy set which provides a starting point for both CFEngine Community and CFEngine Enterprise to base your own policy on top of. It can be extended or replaced entirely by a 3rd party framework (like EFL and NCF). https://docs.cfengine.com/latest/guide-writing-and-serving-policy-policy-framework.html https://github.com/cfengine/masterfiles/
+  topic: The Masterfiles Policy Framework is the default policy set which provides a starting point for both CFEngine Community and CFEngine Enterprise to base your own policy on top of. It can be extended or replaced entirely by a 3rd party framework (like EFL, NCF and SCL). https://docs.cfengine.com/latest/guide-writing-and-serving-policy-policy-framework.html https://github.com/cfengine/masterfiles/
 
 - keywords:
    - ncf
@@ -111,6 +111,13 @@
 - keywords:
    - test topic
   topic: This topic is for testing the cfbot. Do not remove.
+
+- keywords:
+   - scl
+   - surfsara cfengine library
+   - policy framework
+   - promise framework
+   topic: SURFsara CFEngine Library (SCL) ready to use service mustache/json templates or for writing your own. https://github.com/basvandervlies/cf_surfsara_lib
 
 - keywords:
    - vim
