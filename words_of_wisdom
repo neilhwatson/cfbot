@@ -108,3 +108,20 @@ Changed in 3.10: getvariablemetatags() and getclassmetatags() take an optional s
 Changed in 3.10: sys.user_data container for user starting agent.  
 Changed in 3.10: allow ifelse(FALSE, $(x), "something else") to work, even if x is not defined
 New in 3.11: `with` attribute added to help avoid unnecessary intermediary variables
+- 3.7 LTS released July 17th 2015, supported until August 31st 2018. https://cfengine.com/extended-support/
+- 3.10 LTS released December 28th 2016, supported until December 28th 2019. https://cfengine.com/extended-support/
+- 3.12 LTS released June 28th 2019, supported until June 28th 2021. https://cfengine.com/extended-support/
+- New in 3.12: More specific augments can be merged on top of the default using the `augments` key. https://docs.cfengine.com/docs/3.12/reference-language-concepts-augments.html
+- New in 3.12: Policy entry specific bundlesequnce with `__main__` bundles. https://docs.cfengine.com/docs/3.12/reference-language-concepts-bundles.html#library-main-bundles
+- New in 3.12: `hash_to_int()` policy function for decentralized grouping and orchestration. https://docs.cfengine.com/docs/master/reference-functions-hash_to_int.html
+- New in 3.12: `missing_ok` attribute in `copy_from` bodies allows remote files to be treated as a promise KEPT. https://docs.cfengine.com/docs/3.12/reference-promise-types-files.html#missing_ok
+- New in 3.12: `sys.policy_entry_basename` variable containing the first policy file read by the agent. https://docs.cfengine.com/docs/3.12/reference-special-variables-sys.html#sys-policy_entry_basename
+- New in 3.12: `sys.policy_entry_dirname` variable containing the full path to the directory containing the first policy file read by the agent. https://docs.cfengine.com/docs/3.12/reference-special-variables-sys.html#sys-policy_entry_dirname
+- New in 3.12: `sys.policy_entry_filename` variables containing the full path to the first policy file read by the agent. https://docs.cfengine.com/docs/3.12/reference-special-variables-sys.html#sys-policy_entry_filename
+- New in 3.12: `inline_mustahce` `template_method` allows specification of mustache templates without requiring an external template file.https://docs.cfengine.com/docs/3.12/reference-promise-types-files.html#template_data
+- New in 3.12: `cf-net` component for interacting with the CFEngine network protocol via CLI. https://docs.cfengine.com/docs/3.12/reference-components-cf-net.html
+- New in 3.12: `--log-level` option allows easier specification of the desired log level.
+- New in 3.12: Custom `measurements` type promises are available in cfengine community.
+- New in 3.12: `max_bytes` parameter to file reading functions is now optional and defaults to `inf`
+- New in 3.12: `/etc/os-release` is used for classification for better support of newer Linux distributions.
+- New in 3.12: Many MPF tunables have been exposed via augments to avoid making changes to vendored policy and to make policy framework upgrades easier. https://docs.cfengine.com/docs/3.12/reference-masterfiles-policy-framework.html#configuration
