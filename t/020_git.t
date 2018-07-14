@@ -10,7 +10,7 @@ Test cfbot git feed.
 
 use lib '.';
 use Test::More tests => 5;
-use File::Fetch;
+use Mojo::UserAgent;
 use Digest::file qw{ digest_file_hex };
 use Data::Dumper;
 require cfbot;
@@ -37,7 +37,7 @@ cfbot::git_repo( 'self', {
 test_git_repository({
    name => 'No repo exists',
    file => 'README.md',
-   url  => 'http://raw.githubusercontent.com/cfengine/documentation/master/',
+   url  => 'https://raw.githubusercontent.com/cfengine/documentation/master/',
    dir  => 'documentation',
 });
 
@@ -51,7 +51,7 @@ cfbot::git_repo( 'self', {
 test_git_repository({
    name => 'Repo is missing a file',
    file => 'README.md',
-   url  => 'http://raw.githubusercontent.com/cfengine/documentation/master/',
+   url  => 'https://raw.githubusercontent.com/cfengine/documentation/master/',
    dir  => 'documentation',
 });
 
@@ -65,7 +65,7 @@ cfbot::git_repo( 'self', {
 test_git_repository({
    name => 'Repo is missing .git',
    file => 'README.md',
-   url  => 'http://raw.githubusercontent.com/cfengine/documentation/master/',
+   url  => 'https://raw.githubusercontent.com/cfengine/documentation/master/',
    dir  => 'documentation',
 });
 
@@ -80,7 +80,7 @@ cfbot::git_repo( 'self', {
 test_git_repository({
    name => 'Repo is a file',
    file => 'README.md',
-   url  => 'http://raw.githubusercontent.com/cfengine/documentation/master/',
+   url  => 'https://raw.githubusercontent.com/cfengine/documentation/master/',
    dir  => 'documentation',
 });
 
@@ -104,8 +104,10 @@ sub test_git_repository {
    unlink( "/tmp/$arg->{file}" );
 
    # Downlaod file
-   my $ff = File::Fetch->new( uri => "$arg->{url}/$arg->{file}" );
-   $ff->fetch( to  => '/tmp' ) or die "$!, $ff->error";
+   my $ua = Mojo::UserAgent->new();
+   $ua->max_redirects(5)
+    ->get( "$arg->{url}$arg->{file}" )
+    ->res->content->asset->move_to( "/tmp/$arg->{file}" );
 
    # Get hashes of downloaded file and repo file
    my $test_digest = digest_file_hex( '/tmp/'.$arg->{file}, 'MD5' );

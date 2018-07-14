@@ -118,7 +118,7 @@ New in 3.11: `with` attribute added to help avoid unnecessary intermediary varia
 - New in 3.12: `sys.policy_entry_basename` variable containing the first policy file read by the agent. https://docs.cfengine.com/docs/3.12/reference-special-variables-sys.html#sys-policy_entry_basename
 - New in 3.12: `sys.policy_entry_dirname` variable containing the full path to the directory containing the first policy file read by the agent. https://docs.cfengine.com/docs/3.12/reference-special-variables-sys.html#sys-policy_entry_dirname
 - New in 3.12: `sys.policy_entry_filename` variables containing the full path to the first policy file read by the agent. https://docs.cfengine.com/docs/3.12/reference-special-variables-sys.html#sys-policy_entry_filename
-- New in 3.12: `inline_mustahce` `template_method` allows specification of mustache templates without requiring an external template file.https://docs.cfengine.com/docs/3.12/reference-promise-types-files.html#template_data
+- New in 3.12: `inline_mustache` `template_method` allows specification of mustache templates without requiring an external template file.https://docs.cfengine.com/docs/3.12/reference-promise-types-files.html#template_data
 - New in 3.12: `cf-net` component for interacting with the CFEngine network protocol via CLI. https://docs.cfengine.com/docs/3.12/reference-components-cf-net.html
 - New in 3.12: `--log-level` option allows easier specification of the desired log level.
 - New in 3.12: Custom `measurements` type promises are available in cfengine community.

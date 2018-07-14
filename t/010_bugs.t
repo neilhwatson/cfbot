@@ -66,7 +66,7 @@ sub _test_bug_number_invalid {
 sub _test_cfengine_bug_atom_feed {
    my ( $arg ) = @_;
    my $bug_line_regex = qr/
-      (commented|Created|Changed|Started|Updated) .* CFE-\d{2,5} .+\Z
+      \ABug\sfeed: .*? CFE-\d{2,5} .+\Z
    /sixm;
 
    my $events = cfbot::atom_feed( 'self', {

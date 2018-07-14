@@ -52,5 +52,7 @@ sub _test_canonify{
    my $string = "this is a 45 *.()string";
    my $result = "this_is_a_45_____string";
    
+   print $result;
+   print cfbot::canonify('self', $string);
    is( cfbot::canonify('self', $string), $result, "Was string canonified" );
 }

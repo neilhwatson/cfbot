@@ -117,12 +117,12 @@
    - surfsara cfengine library
    - policy framework
    - promise framework
-   topic: SURFsara CFEngine Library (SCL) ready to use service mustache/json templates or for writing your own. https://github.com/basvandervlies/cf_surfsara_lib
+  topic: SURFsara CFEngine Library (SCL) ready to use service mustache/json templates or for writing your own. https://github.com/basvandervlies/cf_surfsara_lib
 
 - keywords:
    - vim
    - vim_cf3
-  topic: Vim_cf3 Is a VIM plugin for editing CFEngine code: https://github.com/neilhwatson/vim_cf3 
+  topic: Vim_cf3 Is a VIM plugin for editing CFEngine code: https://github.com/neilhwatson/vim_cf3
 
 - keywords:
    - mailing list
